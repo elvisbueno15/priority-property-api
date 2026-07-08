@@ -1,0 +1,18 @@
+import { NestFactory } from '@nestjs/core';
+import { json, urlencoded, static as serveStatic } from 'express';
+import * as path from 'path';
+import { AppModule } from './app.module';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule, { bodyParser: false });
+  // Screenshots llegan como base64 — subir el límite del body.
+  app.use(json({ limit: '25mb' }));
+  app.use(urlencoded({ extended: true, limit: '25mb' }));
+  // La app Electron corre desde file:// y otros equipos de la red — reflejar cualquier origen.
+  app.enableCors({ origin: true });
+  app.use('/screenshots', serveStatic(path.join(__dirname, '..', 'data', 'screenshots')));
+  const port = Number(process.env.PORT) || 3001;
+  await app.listen(port, '0.0.0.0');
+  console.log(`API running on http://0.0.0.0:${port}`);
+}
+bootstrap();
