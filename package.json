@@ -4,11 +4,14 @@
   "private": true,
   "main": "dist/main.js",
   "scripts": {
-    "start": "nest start",
+    "start": "npm run build && node dist/main.js",
     "build": "nest build",
     "dev": "nest start --watch",
     "start:dev": "nest start --watch",
     "test": "jest"
+  },
+  "engines": {
+    "node": ">=18.18.0"
   },
   "dependencies": {
     "@nestjs/common": "^10.3.0",
