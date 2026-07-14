@@ -15,6 +15,7 @@ describe('AuthService', () => {
 
     service = module.get<AuthService>(AuthService);
     usersService = module.get<UsersService>(UsersService);
+    await usersService.ready;
   });
 
   beforeEach(async () => {

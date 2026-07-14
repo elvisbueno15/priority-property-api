@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import { randomUUID } from 'crypto';
 import { Role } from './entities/role.enum';
 import { User } from './entities/user.entity';
@@ -20,9 +20,11 @@ export interface JsonUser {
 export class UsersService {
   private readonly filePath = path.join(__dirname, '..', '..', 'data', 'users.json');
   private users: JsonUser[] = [];
+  /** Resolves once the initial file load + demo seed finished. */
+  readonly ready: Promise<void>;
 
   constructor() {
-    this.load();
+    this.ready = this.load();
   }
 
   private async load(): Promise<void> {
