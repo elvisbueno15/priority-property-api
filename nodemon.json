@@ -1,0 +1,5 @@
+{
+  "ignore": ["data/**", "*.log", "yarn.lock"],
+  "watch": ["dist"],
+  "ext": "js"
+}

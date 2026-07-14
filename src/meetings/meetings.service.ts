@@ -3,6 +3,7 @@ import { nanoid } from 'nanoid';
 import { promises as fs } from 'fs';
 import * as fsSync from 'fs';
 import * as path from 'path';
+import { DATA_DIR } from '../data-dir.util';
 import { UsersService } from '../users/users.service';
 import { Role } from '../users/entities/role.enum';
 
@@ -17,7 +18,6 @@ export interface Meeting {
   createdAt: string;
 }
 
-const DATA_DIR = path.join(__dirname, '..', '..', 'data');
 const STORE_PATH = path.join(DATA_DIR, 'meetings.json');
 const ROOM_PING_WINDOW_MS = 30_000;
 

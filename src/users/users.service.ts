@@ -5,6 +5,7 @@ import { Role } from './entities/role.enum';
 import { User } from './entities/user.entity';
 import { promises as fs } from 'fs';
 import * as path from 'path';
+import { DATA_DIR } from '../data-dir.util';
 
 export interface JsonUser {
   id: string;
@@ -18,7 +19,7 @@ export interface JsonUser {
 
 @Injectable()
 export class UsersService {
-  private readonly filePath = path.join(__dirname, '..', '..', 'data', 'users.json');
+  private readonly filePath = path.join(DATA_DIR, 'users.json');
   private users: JsonUser[] = [];
   /** Resolves once the initial file load + demo seed finished. */
   readonly ready: Promise<void>;

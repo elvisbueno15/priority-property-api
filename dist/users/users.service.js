@@ -49,9 +49,10 @@ const crypto_1 = require("crypto");
 const role_enum_1 = require("./entities/role.enum");
 const fs_1 = require("fs");
 const path = __importStar(require("path"));
+const data_dir_util_1 = require("../data-dir.util");
 let UsersService = class UsersService {
     constructor() {
-        this.filePath = path.join(__dirname, '..', '..', 'data', 'users.json');
+        this.filePath = path.join(data_dir_util_1.DATA_DIR, 'users.json');
         this.users = [];
         this.ready = this.load();
     }

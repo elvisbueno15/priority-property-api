@@ -3,6 +3,7 @@ import { nanoid } from 'nanoid';
 import { promises as fs } from 'fs';
 import * as fsSync from 'fs';
 import * as path from 'path';
+import { DATA_DIR } from '../data-dir.util';
 
 export interface ChatMessage {
   id: string;
@@ -13,7 +14,6 @@ export interface ChatMessage {
   at: string;
 }
 
-const DATA_DIR = path.join(__dirname, '..', '..', 'data');
 const STORE_PATH = path.join(DATA_DIR, 'chat.json');
 const MAX_PER_CHANNEL = 2000;
 const PAGE_SIZE = 100;

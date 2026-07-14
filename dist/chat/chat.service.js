@@ -48,8 +48,8 @@ const nanoid_1 = require("nanoid");
 const fs_1 = require("fs");
 const fsSync = __importStar(require("fs"));
 const path = __importStar(require("path"));
-const DATA_DIR = path.join(__dirname, '..', '..', 'data');
-const STORE_PATH = path.join(DATA_DIR, 'chat.json');
+const data_dir_util_1 = require("../data-dir.util");
+const STORE_PATH = path.join(data_dir_util_1.DATA_DIR, 'chat.json');
 const MAX_PER_CHANNEL = 2000;
 const PAGE_SIZE = 100;
 exports.CHANNELS = ['general', 'support', 'executives'];
@@ -71,7 +71,7 @@ let ChatService = class ChatService {
         this.saveTimer = setTimeout(async () => {
             this.saveTimer = null;
             try {
-                await fs_1.promises.mkdir(DATA_DIR, { recursive: true });
+                await fs_1.promises.mkdir(data_dir_util_1.DATA_DIR, { recursive: true });
                 await fs_1.promises.writeFile(STORE_PATH, JSON.stringify({ messages: this.messages }, null, 2), 'utf-8');
             }
             catch (e) {

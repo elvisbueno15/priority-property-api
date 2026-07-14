@@ -48,11 +48,11 @@ const nanoid_1 = require("nanoid");
 const fs_1 = require("fs");
 const fsSync = __importStar(require("fs"));
 const path = __importStar(require("path"));
+const data_dir_util_1 = require("../data-dir.util");
 const users_service_1 = require("../users/users.service");
 const role_enum_1 = require("../users/entities/role.enum");
-const DATA_DIR = path.join(__dirname, '..', '..', 'data');
-const STORE_PATH = path.join(DATA_DIR, 'tracking.json');
-const SCREENSHOT_DIR = path.join(DATA_DIR, 'screenshots');
+const STORE_PATH = path.join(data_dir_util_1.DATA_DIR, 'tracking.json');
+const SCREENSHOT_DIR = path.join(data_dir_util_1.DATA_DIR, 'screenshots');
 const MAX_USAGE_PER_ENTRY = 1000;
 const now = () => new Date().toISOString();
 let TimeTrackingService = class TimeTrackingService {
@@ -83,7 +83,7 @@ let TimeTrackingService = class TimeTrackingService {
         this.saveTimer = setTimeout(async () => {
             this.saveTimer = null;
             try {
-                await fs_1.promises.mkdir(DATA_DIR, { recursive: true });
+                await fs_1.promises.mkdir(data_dir_util_1.DATA_DIR, { recursive: true });
                 await fs_1.promises.writeFile(STORE_PATH, JSON.stringify(this.store, null, 2), 'utf-8');
             }
             catch (e) {

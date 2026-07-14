@@ -33,22 +33,12 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-const core_1 = require("@nestjs/core");
-const express_1 = require("express");
+exports.DATA_DIR = void 0;
 const path = __importStar(require("path"));
-const app_module_1 = require("./app.module");
-const data_dir_util_1 = require("./data-dir.util");
-async function bootstrap() {
-    const app = await core_1.NestFactory.create(app_module_1.AppModule, { bodyParser: false });
-    // Screenshots llegan como base64 — subir el límite del body.
-    app.use((0, express_1.json)({ limit: '25mb' }));
-    app.use((0, express_1.urlencoded)({ extended: true, limit: '25mb' }));
-    // La app Electron corre desde file:// y otros equipos de la red — reflejar cualquier origen.
-    app.enableCors({ origin: true });
-    app.use('/screenshots', (0, express_1.static)(path.join(data_dir_util_1.DATA_DIR, 'screenshots')));
-    const port = Number(process.env.PORT) || 3001;
-    await app.listen(port, '0.0.0.0');
-    console.log(`API running on http://0.0.0.0:${port}`);
-}
-bootstrap();
-//# sourceMappingURL=main.js.map
+/**
+ * Where all JSON stores and screenshots live. Defaults to <app root>/data;
+ * override with PPA_DATA_DIR to move it outside the deploy dir (e.g. on hosts
+ * whose file watcher would otherwise restart the app on every data write).
+ */
+exports.DATA_DIR = process.env.PPA_DATA_DIR || path.join(__dirname, '..', 'data');
+//# sourceMappingURL=data-dir.util.js.map
