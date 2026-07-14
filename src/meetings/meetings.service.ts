@@ -20,6 +20,16 @@ export interface Meeting {
 
 const STORE_PATH = path.join(DATA_DIR, 'meetings.json');
 const ROOM_PING_WINDOW_MS = 30_000;
+const SIGNAL_TTL_MS = 60_000;
+const MAX_SIGNALS_PER_USER = 200;
+
+export interface RtcSignal {
+  from: string;
+  fromName: string;
+  type: string;      // 'offer' | 'answer' | 'ice'
+  data: any;
+  at: number;
+}
 
 @Injectable()
 export class MeetingsService {
@@ -27,6 +37,8 @@ export class MeetingsService {
   private saveTimer: NodeJS.Timeout | null = null;
   // meetingId -> userId -> last ping (in-memory: who is in the room right now)
   private rooms = new Map<string, Map<string, number>>();
+  // meetingId -> recipient userId -> queued WebRTC signals (drained on poll)
+  private signals = new Map<string, Map<string, RtcSignal[]>>();
 
   constructor(private readonly usersService: UsersService) {
     try {
@@ -78,6 +90,7 @@ export class MeetingsService {
     if (m.createdBy !== user.sub && !isAdmin) throw new ForbiddenException();
     this.meetings = this.meetings.filter((x) => x.id !== id);
     this.rooms.delete(id);
+    this.signals.delete(id);
     this.scheduleSave();
     return { ok: true };
   }
@@ -101,7 +114,29 @@ export class MeetingsService {
 
   leave(meetingId: string, userId: string) {
     this.rooms.get(meetingId)?.delete(userId);
+    this.signals.get(meetingId)?.delete(userId);
     return { ok: true };
+  }
+
+  /** Queue a WebRTC signal for another participant in the same room. */
+  sendSignal(meetingId: string, fromUser: { sub: string }, to: string, type: string, data: any) {
+    const m = this.meetings.find((x) => x.id === meetingId);
+    if (!m) throw new NotFoundException('meeting_not_found');
+    const sender = this.usersService.findById(fromUser.sub);
+    let perMeeting = this.signals.get(meetingId);
+    if (!perMeeting) { perMeeting = new Map(); this.signals.set(meetingId, perMeeting); }
+    const queue = perMeeting.get(to) || [];
+    queue.push({ from: fromUser.sub, fromName: sender ? sender.name : '', type, data, at: Date.now() });
+    perMeeting.set(to, queue.slice(-MAX_SIGNALS_PER_USER));
+    return { ok: true };
+  }
+
+  /** Drain my pending signals (drops anything older than the TTL). */
+  drainSignals(meetingId: string, userId: string): RtcSignal[] {
+    const queue = this.signals.get(meetingId)?.get(userId) || [];
+    this.signals.get(meetingId)?.set(userId, []);
+    const cutoff = Date.now() - SIGNAL_TTL_MS;
+    return queue.filter((s) => s.at >= cutoff);
   }
 
   room(meetingId: string) {

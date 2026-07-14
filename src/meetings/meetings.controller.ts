@@ -42,6 +42,17 @@ export class MeetingsController {
     return this.meetings.leave(id, req.user.sub);
   }
 
+  @Post(':id/signal')
+  signal(@Request() req: any, @Param('id') id: string, @Body() body: { to: string; type: string; data: any }) {
+    return this.meetings.sendSignal(id, req.user, body.to, body.type, body.data);
+  }
+
+  @Get(':id/signals')
+  signals(@Request() req: any, @Param('id') id: string) {
+    this.presence.touch(req.user.sub);
+    return this.meetings.drainSignals(id, req.user.sub);
+  }
+
   @Get(':id/room')
   room(@Param('id') id: string) {
     return this.meetings.room(id);

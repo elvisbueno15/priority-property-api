@@ -53,6 +53,8 @@ const users_service_1 = require("../users/users.service");
 const role_enum_1 = require("../users/entities/role.enum");
 const STORE_PATH = path.join(data_dir_util_1.DATA_DIR, 'meetings.json');
 const ROOM_PING_WINDOW_MS = 30_000;
+const SIGNAL_TTL_MS = 60_000;
+const MAX_SIGNALS_PER_USER = 200;
 let MeetingsService = class MeetingsService {
     constructor(usersService) {
         this.usersService = usersService;
@@ -60,6 +62,8 @@ let MeetingsService = class MeetingsService {
         this.saveTimer = null;
         // meetingId -> userId -> last ping (in-memory: who is in the room right now)
         this.rooms = new Map();
+        // meetingId -> recipient userId -> queued WebRTC signals (drained on poll)
+        this.signals = new Map();
         try {
             const parsed = JSON.parse(fsSync.readFileSync(STORE_PATH, 'utf-8'));
             this.meetings = parsed.meetings || [];
@@ -113,6 +117,7 @@ let MeetingsService = class MeetingsService {
             throw new common_1.ForbiddenException();
         this.meetings = this.meetings.filter((x) => x.id !== id);
         this.rooms.delete(id);
+        this.signals.delete(id);
         this.scheduleSave();
         return { ok: true };
     }
@@ -137,7 +142,31 @@ let MeetingsService = class MeetingsService {
     }
     leave(meetingId, userId) {
         this.rooms.get(meetingId)?.delete(userId);
+        this.signals.get(meetingId)?.delete(userId);
         return { ok: true };
+    }
+    /** Queue a WebRTC signal for another participant in the same room. */
+    sendSignal(meetingId, fromUser, to, type, data) {
+        const m = this.meetings.find((x) => x.id === meetingId);
+        if (!m)
+            throw new common_1.NotFoundException('meeting_not_found');
+        const sender = this.usersService.findById(fromUser.sub);
+        let perMeeting = this.signals.get(meetingId);
+        if (!perMeeting) {
+            perMeeting = new Map();
+            this.signals.set(meetingId, perMeeting);
+        }
+        const queue = perMeeting.get(to) || [];
+        queue.push({ from: fromUser.sub, fromName: sender ? sender.name : '', type, data, at: Date.now() });
+        perMeeting.set(to, queue.slice(-MAX_SIGNALS_PER_USER));
+        return { ok: true };
+    }
+    /** Drain my pending signals (drops anything older than the TTL). */
+    drainSignals(meetingId, userId) {
+        const queue = this.signals.get(meetingId)?.get(userId) || [];
+        this.signals.get(meetingId)?.set(userId, []);
+        const cutoff = Date.now() - SIGNAL_TTL_MS;
+        return queue.filter((s) => s.at >= cutoff);
     }
     room(meetingId) {
         const room = this.rooms.get(meetingId);

@@ -41,6 +41,13 @@ let MeetingsController = class MeetingsController {
     leave(req, id) {
         return this.meetings.leave(id, req.user.sub);
     }
+    signal(req, id, body) {
+        return this.meetings.sendSignal(id, req.user, body.to, body.type, body.data);
+    }
+    signals(req, id) {
+        this.presence.touch(req.user.sub);
+        return this.meetings.drainSignals(id, req.user.sub);
+    }
     room(id) {
         return this.meetings.room(id);
     }
@@ -87,6 +94,23 @@ __decorate([
     __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
 ], MeetingsController.prototype, "leave", null);
+__decorate([
+    (0, common_1.Post)(':id/signal'),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Param)('id')),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:returntype", void 0)
+], MeetingsController.prototype, "signal", null);
+__decorate([
+    (0, common_1.Get)(':id/signals'),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", void 0)
+], MeetingsController.prototype, "signals", null);
 __decorate([
     (0, common_1.Get)(':id/room'),
     __param(0, (0, common_1.Param)('id')),
