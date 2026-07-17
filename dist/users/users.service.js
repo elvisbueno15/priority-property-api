@@ -60,12 +60,15 @@ let UsersService = class UsersService {
         try {
             const raw = await fs_1.promises.readFile(this.filePath, 'utf-8');
             this.users = JSON.parse(raw);
+            // Existing store: never re-seed, so deleted demo accounts stay deleted.
+            if (this.users.length === 0)
+                await this.seedIfMissing();
         }
         catch {
             this.users = [];
             await this.save();
+            await this.seedIfMissing();
         }
-        await this.seedIfMissing();
     }
     async save() {
         const dir = path.dirname(this.filePath);

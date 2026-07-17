@@ -42,39 +42,26 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ChatService = exports.CHANNELS = void 0;
-exports.isDmChannel = isDmChannel;
-exports.dmParticipants = dmParticipants;
+exports.FeedbackService = void 0;
 const common_1 = require("@nestjs/common");
 const nanoid_1 = require("nanoid");
 const fs_1 = require("fs");
 const fsSync = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const data_dir_util_1 = require("../data-dir.util");
-const STORE_PATH = path.join(data_dir_util_1.DATA_DIR, 'chat.json');
-const MAX_PER_CHANNEL = 2000;
-const PAGE_SIZE = 100;
-exports.CHANNELS = ['general', 'support', 'executives'];
-/**
- * Direct-message channels look like `dm:<idA>:<idB>` with the two user ids
- * sorted, so both sides always compute the same channel name.
- */
-function isDmChannel(channel) {
-    return channel.startsWith('dm:') && channel.split(':').length === 3;
-}
-function dmParticipants(channel) {
-    return channel.split(':').slice(1);
-}
-let ChatService = class ChatService {
+const STORE_PATH = path.join(data_dir_util_1.DATA_DIR, 'feedback.json');
+const CATEGORIES = ['problem', 'suggestion', 'question', 'other'];
+const MAX_ITEMS = 500;
+let FeedbackService = class FeedbackService {
     constructor() {
-        this.messages = [];
+        this.items = [];
         this.saveTimer = null;
         try {
             const parsed = JSON.parse(fsSync.readFileSync(STORE_PATH, 'utf-8'));
-            this.messages = parsed.messages || [];
+            this.items = parsed.items || [];
         }
         catch {
-            this.messages = [];
+            this.items = [];
         }
     }
     scheduleSave() {
@@ -84,72 +71,46 @@ let ChatService = class ChatService {
             this.saveTimer = null;
             try {
                 await fs_1.promises.mkdir(data_dir_util_1.DATA_DIR, { recursive: true });
-                await fs_1.promises.writeFile(STORE_PATH, JSON.stringify({ messages: this.messages }, null, 2), 'utf-8');
+                await fs_1.promises.writeFile(STORE_PATH, JSON.stringify({ items: this.items }, null, 2), 'utf-8');
             }
             catch (e) {
-                console.error('chat store save failed', e);
+                console.error('feedback store save failed', e);
             }
         }, 400);
     }
-    channels() {
-        return exports.CHANNELS;
+    submit(user, category, message) {
+        const text = (message || '').trim();
+        if (!text)
+            throw new common_1.BadRequestException('empty_message');
+        const item = {
+            id: (0, nanoid_1.nanoid)(10),
+            userId: user.id,
+            name: user.name,
+            email: user.email,
+            category: CATEGORIES.includes(category) ? category : 'other',
+            message: text.slice(0, 4000),
+            at: new Date().toISOString(),
+        };
+        this.items.push(item);
+        this.items = this.items.slice(-MAX_ITEMS);
+        this.scheduleSave();
+        return item;
     }
-    /** Public channels are open to everyone; a DM only to its two participants. */
-    assertAccess(channel, userId) {
-        if (exports.CHANNELS.includes(channel))
-            return;
-        if (isDmChannel(channel) && dmParticipants(channel).includes(userId))
-            return;
-        throw new common_1.BadRequestException('unknown_channel');
+    list() {
+        return [...this.items].reverse();
     }
-    list(channel, userId, afterId) {
-        this.assertAccess(channel, userId);
-        const inChannel = this.messages.filter((m) => m.channel === channel);
-        if (afterId) {
-            const idx = inChannel.findIndex((m) => m.id === afterId);
-            if (idx >= 0)
-                return inChannel.slice(idx + 1);
-        }
-        return inChannel.slice(-PAGE_SIZE);
-    }
-    clear(channel, user) {
-        if (exports.CHANNELS.includes(channel)) {
-            if (user.role !== 'owner' && user.role !== 'admin')
-                throw new common_1.BadRequestException('admin_required');
-        }
-        else {
-            this.assertAccess(channel, user.sub);
-        }
-        this.messages = this.messages.filter((m) => m.channel !== channel);
+    remove(id) {
+        const before = this.items.length;
+        this.items = this.items.filter((i) => i.id !== id);
+        if (this.items.length === before)
+            throw new common_1.NotFoundException('feedback_not_found');
         this.scheduleSave();
         return { ok: true };
     }
-    post(user, name, channel, body) {
-        this.assertAccess(channel, user.sub);
-        const text = (body || '').trim();
-        if (!text)
-            throw new common_1.BadRequestException('empty_message');
-        const msg = {
-            id: (0, nanoid_1.nanoid)(12),
-            channel,
-            userId: user.sub,
-            name,
-            body: text.slice(0, 4000),
-            at: new Date().toISOString(),
-        };
-        this.messages.push(msg);
-        const inChannel = this.messages.filter((m) => m.channel === channel);
-        if (inChannel.length > MAX_PER_CHANNEL) {
-            const dropId = inChannel[0].id;
-            this.messages = this.messages.filter((m) => m.id !== dropId);
-        }
-        this.scheduleSave();
-        return msg;
-    }
 };
-exports.ChatService = ChatService;
-exports.ChatService = ChatService = __decorate([
+exports.FeedbackService = FeedbackService;
+exports.FeedbackService = FeedbackService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [])
-], ChatService);
-//# sourceMappingURL=chat.service.js.map
+], FeedbackService);
+//# sourceMappingURL=feedback.service.js.map

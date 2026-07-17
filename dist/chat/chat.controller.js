@@ -29,7 +29,10 @@ let ChatController = class ChatController {
     }
     messages(req, channel = 'general', after) {
         this.presence.touch(req.user.sub);
-        return this.chat.list(channel, after);
+        return this.chat.list(channel, req.user.sub, after);
+    }
+    clear(req, channel = 'general') {
+        return this.chat.clear(channel, req.user);
     }
     post(req, body) {
         this.presence.touch(req.user.sub);
@@ -54,6 +57,14 @@ __decorate([
     __metadata("design:paramtypes", [Object, Object, String]),
     __metadata("design:returntype", void 0)
 ], ChatController.prototype, "messages", null);
+__decorate([
+    (0, common_1.Delete)('messages'),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Query)('channel')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", void 0)
+], ChatController.prototype, "clear", null);
 __decorate([
     (0, common_1.Post)('messages'),
     __param(0, (0, common_1.Request)()),

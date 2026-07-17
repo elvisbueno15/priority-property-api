@@ -13,13 +13,14 @@ const users_module_1 = require("./users/users.module");
 const time_tracking_module_1 = require("./time-tracking/time-tracking.module");
 const chat_module_1 = require("./chat/chat.module");
 const meetings_module_1 = require("./meetings/meetings.module");
+const feedback_module_1 = require("./feedback/feedback.module");
 const app_controller_1 = require("./app.controller");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
-        imports: [users_module_1.UsersModule, auth_module_1.AuthModule, time_tracking_module_1.TimeTrackingModule, chat_module_1.ChatModule, meetings_module_1.MeetingsModule],
+        imports: [users_module_1.UsersModule, auth_module_1.AuthModule, time_tracking_module_1.TimeTrackingModule, chat_module_1.ChatModule, meetings_module_1.MeetingsModule, feedback_module_1.FeedbackModule],
         controllers: [app_controller_1.AppController],
     })
 ], AppModule);

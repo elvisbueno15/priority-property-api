@@ -32,11 +32,13 @@ export class UsersService {
     try {
       const raw = await fs.readFile(this.filePath, 'utf-8');
       this.users = JSON.parse(raw) as JsonUser[];
+      // Existing store: never re-seed, so deleted demo accounts stay deleted.
+      if (this.users.length === 0) await this.seedIfMissing();
     } catch {
       this.users = [];
       await this.save();
+      await this.seedIfMissing();
     }
-    await this.seedIfMissing();
   }
 
   private async save(): Promise<void> {

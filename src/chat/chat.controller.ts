@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Query, Request, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Query, Request, UseGuards } from '@nestjs/common';
 import { ChatService } from './chat.service';
 import { PresenceService } from '../users/presence.service';
 import { UsersService } from '../users/users.service';
@@ -21,7 +21,12 @@ export class ChatController {
   @Get('messages')
   messages(@Request() req: any, @Query('channel') channel = 'general', @Query('after') after?: string) {
     this.presence.touch(req.user.sub);
-    return this.chat.list(channel, after);
+    return this.chat.list(channel, req.user.sub, after);
+  }
+
+  @Delete('messages')
+  clear(@Request() req: any, @Query('channel') channel = 'general') {
+    return this.chat.clear(channel, req.user);
   }
 
   @Post('messages')

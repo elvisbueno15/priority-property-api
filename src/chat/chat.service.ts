@@ -20,6 +20,17 @@ const PAGE_SIZE = 100;
 
 export const CHANNELS = ['general', 'support', 'executives'];
 
+/**
+ * Direct-message channels look like `dm:<idA>:<idB>` with the two user ids
+ * sorted, so both sides always compute the same channel name.
+ */
+export function isDmChannel(channel: string): boolean {
+  return channel.startsWith('dm:') && channel.split(':').length === 3;
+}
+export function dmParticipants(channel: string): string[] {
+  return channel.split(':').slice(1);
+}
+
 @Injectable()
 export class ChatService {
   private messages: ChatMessage[] = [];
@@ -51,7 +62,15 @@ export class ChatService {
     return CHANNELS;
   }
 
-  list(channel: string, afterId?: string): ChatMessage[] {
+  /** Public channels are open to everyone; a DM only to its two participants. */
+  private assertAccess(channel: string, userId: string) {
+    if (CHANNELS.includes(channel)) return;
+    if (isDmChannel(channel) && dmParticipants(channel).includes(userId)) return;
+    throw new BadRequestException('unknown_channel');
+  }
+
+  list(channel: string, userId: string, afterId?: string): ChatMessage[] {
+    this.assertAccess(channel, userId);
     const inChannel = this.messages.filter((m) => m.channel === channel);
     if (afterId) {
       const idx = inChannel.findIndex((m) => m.id === afterId);
@@ -60,8 +79,19 @@ export class ChatService {
     return inChannel.slice(-PAGE_SIZE);
   }
 
+  clear(channel: string, user: { sub: string; role?: string }) {
+    if (CHANNELS.includes(channel)) {
+      if (user.role !== 'owner' && user.role !== 'admin') throw new BadRequestException('admin_required');
+    } else {
+      this.assertAccess(channel, user.sub);
+    }
+    this.messages = this.messages.filter((m) => m.channel !== channel);
+    this.scheduleSave();
+    return { ok: true };
+  }
+
   post(user: { sub: string; email: string }, name: string, channel: string, body: string): ChatMessage {
-    if (!CHANNELS.includes(channel)) throw new BadRequestException('unknown_channel');
+    this.assertAccess(channel, user.sub);
     const text = (body || '').trim();
     if (!text) throw new BadRequestException('empty_message');
     const msg: ChatMessage = {
