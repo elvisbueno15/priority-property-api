@@ -12,3 +12,6 @@ services:
         value: 22.11.0
       - key: JWT_SECRET
         generateValue: true
+      # Supabase connection string — value set in the Render dashboard (secret).
+      - key: DATABASE_URL
+        sync: false
