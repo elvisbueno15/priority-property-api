@@ -41,7 +41,10 @@ const path = __importStar(require("path"));
 const app_module_1 = require("./app.module");
 const events_service_1 = require("./events/events.service");
 const data_dir_util_1 = require("./data-dir.util");
+const db_sync_1 = require("./db-sync");
 async function bootstrap() {
+    // Restore data from Supabase BEFORE services read their files on boot.
+    await (0, db_sync_1.restoreFromDb)();
     const app = await core_1.NestFactory.create(app_module_1.AppModule, { bodyParser: false });
     // Screenshots llegan como base64 — subir el límite del body.
     app.use((0, express_1.json)({ limit: '25mb' }));
@@ -76,6 +79,7 @@ async function bootstrap() {
         socket.join('u:' + socket.data.userId);
     });
     app.get(events_service_1.EventsService, { strict: false }).bind(io);
+    (0, db_sync_1.startDbSync)();
     console.log(`API running on http://0.0.0.0:${port}`);
 }
 bootstrap();

@@ -6,8 +6,11 @@ import * as path from 'path';
 import { AppModule } from './app.module';
 import { EventsService } from './events/events.service';
 import { DATA_DIR } from './data-dir.util';
+import { restoreFromDb, startDbSync } from './db-sync';
 
 async function bootstrap() {
+  // Restore data from Supabase BEFORE services read their files on boot.
+  await restoreFromDb();
   const app = await NestFactory.create(AppModule, { bodyParser: false });
   // Screenshots llegan como base64 — subir el límite del body.
   app.use(json({ limit: '25mb' }));
@@ -43,6 +46,7 @@ async function bootstrap() {
   });
   app.get(EventsService, { strict: false }).bind(io);
 
+  startDbSync();
   console.log(`API running on http://0.0.0.0:${port}`);
 }
 bootstrap();
