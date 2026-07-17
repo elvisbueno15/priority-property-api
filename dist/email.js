@@ -17,10 +17,10 @@ async function sendResetCodeEmail(to, code) {
         console.warn(`[email] RESEND_API_KEY not set — reset code for ${to} is ${code} (not emailed).`);
         return false;
     }
-    const from = process.env.RESEND_FROM || 'Priority Property <onboarding@resend.dev>';
+    const from = process.env.RESEND_FROM || 'Priority Team Connect <onboarding@resend.dev>';
     const html = `
     <div style="font-family:Segoe UI,Arial,sans-serif;max-width:480px;margin:0 auto;color:#1a1a1a">
-      <h2 style="color:#00408C;margin:0 0 12px">Priority Property Acquisition</h2>
+      <h2 style="color:#00408C;margin:0 0 12px">Priority Team Connect</h2>
       <p>We received a request to reset your password. Use this code:</p>
       <p style="font-size:32px;font-weight:800;letter-spacing:6px;color:#00408C;margin:18px 0">${code}</p>
       <p style="color:#555">This code expires in 15 minutes. If you didn't ask for it, you can ignore this email.</p>
