@@ -17,12 +17,14 @@ const common_1 = require("@nestjs/common");
 const chat_service_1 = require("./chat.service");
 const presence_service_1 = require("../users/presence.service");
 const users_service_1 = require("../users/users.service");
+const activity_service_1 = require("../activity/activity.service");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 let ChatController = class ChatController {
-    constructor(chat, presence, usersService) {
+    constructor(chat, presence, usersService, activity) {
         this.chat = chat;
         this.presence = presence;
         this.usersService = usersService;
+        this.activity = activity;
     }
     channels() {
         return this.chat.channels();
@@ -38,7 +40,30 @@ let ChatController = class ChatController {
         this.presence.touch(req.user.sub);
         const user = this.usersService.findById(req.user.sub);
         const name = user ? user.name : req.user.email;
-        return this.chat.post(req.user, name, body.channel || 'general', body.body);
+        const channel = body.channel || 'general';
+        const msg = this.chat.post(req.user, name, channel, body.body);
+        this.notify(req.user.sub, name, channel, msg.body);
+        return msg;
+    }
+    /** Fan out activity: DM recipient, plus anyone @mentioned by name. */
+    notify(senderId, senderName, channel, text) {
+        if ((0, chat_service_1.isDmChannel)(channel)) {
+            const other = (0, chat_service_1.dmParticipants)(channel).find((id) => id !== senderId);
+            if (other)
+                this.activity.push(other, 'dm', `${senderName} sent you a private message`);
+            return;
+        }
+        if (!text.includes('@'))
+            return;
+        const lower = text.toLowerCase();
+        for (const u of this.usersService.listPublic()) {
+            if (u.id === senderId)
+                continue;
+            const first = u.name.split(' ')[0].toLowerCase();
+            if (lower.includes('@' + u.name.toLowerCase()) || lower.includes('@' + first)) {
+                this.activity.push(u.id, 'mention', `${senderName} mentioned you in #${channel}`);
+            }
+        }
     }
 };
 exports.ChatController = ChatController;
@@ -78,6 +103,7 @@ exports.ChatController = ChatController = __decorate([
     (0, common_1.Controller)('chat'),
     __metadata("design:paramtypes", [chat_service_1.ChatService,
         presence_service_1.PresenceService,
-        users_service_1.UsersService])
+        users_service_1.UsersService,
+        activity_service_1.ActivityService])
 ], ChatController);
 //# sourceMappingURL=chat.controller.js.map

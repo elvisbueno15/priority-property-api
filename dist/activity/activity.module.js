@@ -6,20 +6,18 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ChatModule = void 0;
+exports.ActivityModule = void 0;
 const common_1 = require("@nestjs/common");
-const chat_controller_1 = require("./chat.controller");
-const chat_service_1 = require("./chat.service");
-const users_module_1 = require("../users/users.module");
-const activity_module_1 = require("../activity/activity.module");
-let ChatModule = class ChatModule {
+const activity_controller_1 = require("./activity.controller");
+const activity_service_1 = require("./activity.service");
+let ActivityModule = class ActivityModule {
 };
-exports.ChatModule = ChatModule;
-exports.ChatModule = ChatModule = __decorate([
+exports.ActivityModule = ActivityModule;
+exports.ActivityModule = ActivityModule = __decorate([
     (0, common_1.Module)({
-        imports: [users_module_1.UsersModule, activity_module_1.ActivityModule],
-        controllers: [chat_controller_1.ChatController],
-        providers: [chat_service_1.ChatService],
+        controllers: [activity_controller_1.ActivityController],
+        providers: [activity_service_1.ActivityService],
+        exports: [activity_service_1.ActivityService],
     })
-], ChatModule);
-//# sourceMappingURL=chat.module.js.map
+], ActivityModule);
+//# sourceMappingURL=activity.module.js.map

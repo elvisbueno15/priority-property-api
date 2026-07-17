@@ -247,6 +247,17 @@ export class TimeTrackingService {
     };
   }
 
+  /** All screenshots for a user across today's entries, newest first. */
+  userScreenshots(userId: string, limit = 60) {
+    const out: ScreenshotRow[] = [];
+    for (const entry of this.store.entries) {
+      if (entry.userId !== userId) continue;
+      for (const s of this.store.screenshots[entry.id] || []) out.push(s);
+    }
+    out.sort((a, b) => b.capturedAt.localeCompare(a.capturedAt));
+    return out.slice(0, limit);
+  }
+
   teamSummary(onlineIds: Set<string>) {
     const users = this.usersService.listPublic();
     return users.map((u) => {

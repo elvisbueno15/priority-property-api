@@ -11,12 +11,13 @@ const common_1 = require("@nestjs/common");
 const meetings_controller_1 = require("./meetings.controller");
 const meetings_service_1 = require("./meetings.service");
 const users_module_1 = require("../users/users.module");
+const activity_module_1 = require("../activity/activity.module");
 let MeetingsModule = class MeetingsModule {
 };
 exports.MeetingsModule = MeetingsModule;
 exports.MeetingsModule = MeetingsModule = __decorate([
     (0, common_1.Module)({
-        imports: [users_module_1.UsersModule],
+        imports: [users_module_1.UsersModule, activity_module_1.ActivityModule],
         controllers: [meetings_controller_1.MeetingsController],
         providers: [meetings_service_1.MeetingsService],
     })

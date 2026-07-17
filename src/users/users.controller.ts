@@ -4,6 +4,7 @@ import {
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { PresenceService } from './presence.service';
+import { ActivityService } from '../activity/activity.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard';
 import { Role } from './entities/role.enum';
@@ -16,6 +17,7 @@ export class UsersController {
   constructor(
     private readonly usersService: UsersService,
     private readonly presence: PresenceService,
+    private readonly activity: ActivityService,
   ) {}
 
   @Get('me')
@@ -55,6 +57,7 @@ export class UsersController {
       throw new ForbiddenException('owner_required');
     }
     const updated = await this.usersService.promote(id, body.role);
+    this.activity.push(id, 'role', `Your role was changed to ${updated.role}`);
     const { id: uid, email, name, role } = updated;
     return { id: uid, email, name, role };
   }

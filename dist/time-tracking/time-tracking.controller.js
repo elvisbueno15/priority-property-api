@@ -68,6 +68,16 @@ let TimeTrackingController = class TimeTrackingController {
     team() {
         return this.service.teamSummary(this.presence.onlineIds());
     }
+    // --- Owner/admin controls over another user's shift ---
+    adminStart(body) {
+        return this.service.startSession(body.userId, 'general');
+    }
+    adminStop(req, body) {
+        return this.service.stopSession(body.entryId, body.userId, req.user.role);
+    }
+    userScreenshots(userId) {
+        return this.service.userScreenshots(userId);
+    }
     settings(req) {
         return this.service.getSettings(req.user.sub);
     }
@@ -182,6 +192,31 @@ __decorate([
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", void 0)
 ], TimeTrackingController.prototype, "team", null);
+__decorate([
+    (0, roles_guard_1.Roles)(role_enum_1.Role.OWNER, role_enum_1.Role.ADMIN),
+    (0, common_1.Post)('admin/start'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], TimeTrackingController.prototype, "adminStart", null);
+__decorate([
+    (0, roles_guard_1.Roles)(role_enum_1.Role.OWNER, role_enum_1.Role.ADMIN),
+    (0, common_1.Post)('admin/stop'),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", void 0)
+], TimeTrackingController.prototype, "adminStop", null);
+__decorate([
+    (0, roles_guard_1.Roles)(role_enum_1.Role.OWNER, role_enum_1.Role.ADMIN),
+    (0, common_1.Get)('user/:userId/screenshots'),
+    __param(0, (0, common_1.Param)('userId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], TimeTrackingController.prototype, "userScreenshots", null);
 __decorate([
     (0, common_1.Get)('settings'),
     __param(0, (0, common_1.Request)()),

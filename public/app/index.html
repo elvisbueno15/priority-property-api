@@ -1,0 +1,1823 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Priority Property Acquisition</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --ink: #002D5A;
+    --blue: #00408C;
+    --bg: #EEEEEE;
+    --surface: #FFFFFF;
+    --muted: rgba(0,45,90,0.55);
+    --rule: rgba(0,45,90,0.08);
+    --rule-strong: rgba(0,45,90,0.14);
+    --pill-bg: rgba(0,77,140,0.10);
+    --pill-border: rgba(0,77,140,0.18);
+    --danger: #c81e1e;
+    --danger-bg: rgba(200,30,30,0.08);
+    --danger-border: rgba(200,30,30,0.18);
+    --ok: #0a7d33;
+    --ok-bg: #ECF7F0;
+    --ok-border: rgba(10,125,51,0.25);
+  }
+  [data-theme="dark"] {
+    --ink: #e4e4e7;
+    --blue: #5aa9e6;
+    --bg: #0f1114;
+    --surface: #16181c;
+    --muted: #9aa0aa;
+    --rule: #23262d;
+    --rule-strong: #2f323a;
+    --pill-bg: #1f2430;
+    --pill-border: #3a4450;
+    --danger: #f87171;
+    --danger-bg: #2a1515;
+    --danger-border: #5a2020;
+    --ok: #4ade80;
+    --ok-bg: #16241b;
+    --ok-border: #2b4834;
+  }
+  :root { --ui-font: "Segoe UI", Roboto, Helvetica, Arial, sans-serif; --ui-scale: 1; }
+  * { box-sizing: border-box; }
+  html { font-size: calc(16px * var(--ui-scale)); }
+  html, body { margin:0; height:100%; }
+  body {
+    font-family: var(--ui-font);
+    background: var(--bg);
+    color: var(--ink);
+    font-size: 0.875rem;
+  }
+  .screen{display:none; min-height:100vh;}
+  .screen.active{display:flex;}
+  #login, #register{align-items:center; justify-content:center;}
+  .card{
+    background:var(--surface); border:1px solid var(--rule); border-radius:14px; padding:16px;
+  }
+  .auth-card{width:400px; padding:28px; box-shadow:0 14px 34px rgba(0,0,0,.18);}
+  .brand-img{height:56px; width:auto; object-fit:contain; margin-bottom:12px; display:block;}
+  .brand-lockup .pri{
+    font-family:Rockwell,"Roboto Slab",Georgia,"Times New Roman",serif;
+    font-weight:800; font-size:24px; letter-spacing:.6px; color:var(--ink); text-transform:uppercase; line-height:1.1;
+  }
+  .brand-lockup .sec{
+    font-family:"Montserrat","Segoe UI",sans-serif;
+    font-weight:600; font-size:12px; letter-spacing:2.5px; color:var(--blue); text-transform:uppercase; margin-top:2px;
+  }
+  .brand-lockup .slogan{
+    font-family:"Montserrat","Segoe UI",sans-serif; font-style:italic; font-weight:500;
+    font-size:11.5px; color:var(--muted); letter-spacing:.2px; margin-top:8px;
+  }
+  .brand-inline{display:flex; align-items:baseline; gap:6px; flex-wrap:wrap;}
+  .brand-inline .pri{
+    font-family:Rockwell,"Roboto Slab",Georgia,"Times New Roman",serif;
+    font-weight:800; color:var(--ink); text-transform:uppercase; letter-spacing:.3px;
+  }
+  .brand-inline .sec{
+    font-family:"Montserrat","Segoe UI",sans-serif;
+    font-weight:600; color:var(--blue); text-transform:uppercase;
+  }
+  .hint{font-size:12px; color:var(--muted); margin:8px 0 16px;}
+  label{display:block; font-size:11px; font-weight:700; color:var(--muted); margin-bottom:4px; text-transform:uppercase; letter-spacing:.35px;}
+  input, select{
+    width:100%; padding:10px 12px;
+    background:var(--surface); border:1px solid var(--rule-strong); color:var(--ink);
+    border-radius:10px; outline:none; font-size:14px; font-family:inherit;
+  }
+  input:focus, select:focus{border-color:var(--blue);}
+  .row{margin-bottom:12px;}
+  button.primary{
+    width:100%; margin-top:6px; padding:11px 12px;
+    background:var(--blue); color:#fff; font-weight:700; border:none; border-radius:10px; cursor:pointer; font-size:14px;
+  }
+  button.primary:disabled{opacity:.55; cursor:default;}
+  .link{display:block; text-align:center; margin-top:10px; font-size:12px; color:var(--muted); cursor:pointer;}
+  .link:hover{color:var(--blue);}
+  .error{color:var(--danger); font-size:12px; margin-top:6px; min-height:16px;}
+  .okmsg{color:var(--ok); font-size:12px; margin-top:6px; min-height:16px;}
+  .check-row{display:flex; align-items:center; gap:8px; margin:10px 0 4px;}
+  .check-row input{width:auto;}
+  .check-row span{font-size:13px;}
+
+  #app{flex-direction:column;}
+  .topbar{
+    height:50px; display:flex; align-items:center; justify-content:space-between;
+    padding:0 18px; border-bottom:1px solid var(--rule); background:var(--surface); flex:0 0 auto;
+  }
+  .topbar-l{font-weight:700; color:var(--ink); display:flex; align-items:center; gap:10px;}
+  .topbar-l img{height:22px; width:auto;}
+  .topbar-l .brand-inline .pri{font-size:14px;}
+  .topbar-l .brand-inline .sec{font-size:11px; letter-spacing:1px;}
+  .topbar-r{display:flex; align-items:center; gap:10px;}
+  .track-badge{
+    display:inline-flex; align-items:center; gap:7px; padding:5px 12px; border-radius:999px;
+    background:var(--ok-bg); color:var(--ok); border:1px solid var(--ok-border);
+    font-weight:700; font-size:12px; font-variant-numeric:tabular-nums;
+  }
+  .icon-btn{
+    position:relative; background:none; border:none; cursor:pointer; font-size:18px;
+    width:38px; height:38px; border-radius:10px; display:inline-flex; align-items:center; justify-content:center;
+  }
+  .icon-btn:hover{background:var(--rule);}
+  .badge-count{
+    position:absolute; top:2px; right:2px; background:var(--danger); color:#fff;
+    font-size:10px; font-weight:800; min-width:16px; height:16px; border-radius:999px;
+    display:flex; align-items:center; justify-content:center; padding:0 3px;
+  }
+  .menu-wrap{position:relative;}
+  .menu{
+    display:none; position:absolute; right:0; top:46px; z-index:60; width:230px;
+    background:var(--surface); border:1px solid var(--rule-strong); border-radius:12px;
+    box-shadow:0 14px 34px rgba(0,0,0,.28); padding:8px; flex-direction:column; gap:2px;
+  }
+  .menu.on{display:flex;}
+  .menu-user{padding:8px 10px 10px; border-bottom:1px solid var(--rule); margin-bottom:6px;}
+  .menu-name{font-weight:700; color:var(--ink);}
+  .menu-role{margin-top:5px;}
+  .menu-item{
+    text-align:left; background:none; border:none; cursor:pointer; font-family:inherit;
+    color:var(--ink); padding:9px 10px; border-radius:8px; font-size:13px; font-weight:600;
+  }
+  .menu-item:hover{background:var(--rule);}
+  .menu-item.danger{color:var(--danger);}
+  .menu-sep{height:1px; background:var(--rule); margin:6px 0;}
+  .activity-panel{
+    display:none; position:absolute; right:16px; top:56px; z-index:55; width:340px; max-height:60vh; overflow:auto;
+    background:var(--surface); border:1px solid var(--rule-strong); border-radius:12px;
+    box-shadow:0 14px 34px rgba(0,0,0,.28); padding:12px;
+  }
+  .activity-panel.on{display:block;}
+  .activity-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;}
+  .activity-head span{font-weight:800; color:var(--ink);}
+  .act-item{padding:9px 4px; border-bottom:1px solid var(--rule); font-size:13px;}
+  .act-item:last-child{border-bottom:none;}
+  .act-item.unread{background:var(--pill-bg); border-radius:8px; padding-left:8px;}
+  .act-item .when{font-size:11px; color:var(--muted); margin-top:2px;}
+  .pill{
+    padding:5px 10px; font-size:11px; border-radius:999px; font-weight:600;
+    background:var(--pill-bg); color:var(--blue); text-transform:capitalize;
+    border:1px solid var(--pill-border);
+  }
+  .pill.tracking{color:var(--ok); border-color:var(--ok-border); background:var(--ok-bg);}
+  .main{flex:1; display:flex; overflow:hidden; min-height:0;}
+  .sidebar{
+    width:230px; border-right:1px solid var(--rule); background:var(--surface);
+    padding:14px; display:flex; flex-direction:column; gap:8px; flex:0 0 auto;
+  }
+  .sidebar .brand-block{display:flex; align-items:center; gap:10px; margin-bottom:6px;}
+  .sidebar .brand-block img{height:26px; width:auto; border-radius:6px;}
+  .sidebar .brand-block .brand-inline .pri{font-size:13px;}
+  .sidebar .brand-block .brand-inline .sec{font-size:10px; letter-spacing:.8px;}
+  .sidebar .brand-sub{font-size:11px; color:var(--blue); margin-top:1px;}
+  .nav{display:flex; flex-direction:column; gap:4px;}
+  .nav button{
+    text-align:left; background:none; border:none; cursor:pointer; font-family:inherit;
+    color:var(--muted); padding:9px 11px; border-radius:8px; font-size:13px; font-weight:600;
+  }
+  .nav button:hover, .nav button.active{background:var(--rule); color:var(--blue);}
+  .sidebar .bottom{margin-top:auto; display:flex; flex-direction:column; gap:6px;}
+  .theme-btn{
+    background:var(--surface); color:var(--ink); border:1px solid var(--rule-strong);
+    padding:8px 10px; border-radius:10px; cursor:pointer; font-weight:700; font-size:12px; font-family:inherit;
+  }
+  .content{flex:1; overflow:auto; padding:18px 22px; background:var(--bg);}
+
+  .page{display:none;}
+  .page.active{display:block;}
+  .page-title{font-size:20px; margin:0 0 14px; color:var(--ink);}
+  .muted{color:var(--muted); font-size:12px;}
+  .grid{display:grid; gap:14px;}
+  .grid.cols-4{grid-template-columns:repeat(4,1fr);}
+  .grid.cols-3{grid-template-columns:repeat(3,1fr);}
+  .grid.cols-2{grid-template-columns:repeat(2,1fr);}
+
+  .card h4{margin:0 0 6px; font-size:11px; color:var(--muted); font-weight:700; letter-spacing:.45px; text-transform:uppercase;}
+  .card p.big{margin:0; font-size:24px; font-weight:800; color:var(--ink);}
+  .card .sub{margin-top:6px; color:var(--muted); font-size:12px;}
+
+  .chip{
+    padding:8px 12px; background:var(--surface); color:var(--ink); border:1px solid var(--rule-strong);
+    border-radius:10px; cursor:pointer; font-weight:700; font-size:13px; font-family:inherit;
+  }
+  .chip:disabled{opacity:.45; cursor:default;}
+  .chip.blue{background:var(--blue); border-color:var(--blue); color:#fff;}
+  .chip.danger{background:var(--danger-bg); border-color:var(--danger-border); color:var(--danger);}
+  .chip.green{background:var(--ok-bg); border-color:var(--ok-border); color:var(--ok);}
+
+  .tracker-clock{font-size:44px; font-weight:800; color:var(--ink); font-variant-numeric:tabular-nums;}
+  .tracker-state{display:flex; align-items:center; gap:8px; margin-top:4px;}
+  .dot{width:10px; height:10px; border-radius:50%; background:var(--muted); flex:0 0 auto;}
+  .dot.on{background:var(--ok);}
+  .dot.idle{background:#e0a800;}
+  .badge{
+    padding:4px 10px; font-size:11px; border-radius:999px; font-weight:700;
+    background:var(--pill-bg); color:var(--blue); border:1px solid var(--pill-border);
+  }
+  .badge.green{color:var(--ok); border-color:var(--ok-border); background:var(--ok-bg);}
+  .badge.red{color:var(--danger); border-color:var(--danger-border); background:var(--danger-bg);}
+
+  .chat-layout{display:grid; grid-template-columns:200px 1fr; gap:14px; height:calc(100vh - 150px);}
+  .channel{
+    background:var(--surface); border:1px solid var(--rule); border-radius:12px; padding:12px;
+    color:var(--muted); font-size:13px; overflow:auto;
+  }
+  .channel .head{font-size:11px; font-weight:700; letter-spacing:.35px; text-transform:uppercase; margin-bottom:8px;}
+  .channel .item{padding:7px 8px; border-radius:6px; cursor:pointer;}
+  .channel .item:hover{background:var(--rule);}
+  .channel .item.on{background:var(--rule); color:var(--blue); font-weight:700;}
+  .chat-right{display:flex; flex-direction:column; min-height:0;}
+  .chat-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;}
+  .chat-head span{font-weight:800; color:var(--ink); font-size:14px;}
+  textarea{
+    width:100%; padding:10px 12px; background:var(--surface); border:1px solid var(--rule-strong);
+    color:var(--ink); border-radius:10px; outline:none; font-size:14px; font-family:inherit; resize:vertical;
+  }
+  textarea:focus{border-color:var(--blue);}
+  .fb-item{border-bottom:1px solid var(--rule); padding:10px 0;}
+  .fb-item:last-child{border-bottom:none;}
+  .fb-item .meta{font-size:11px; color:var(--muted);}
+  .fb-item .meta b{color:var(--blue);}
+  .fb-item .body{font-size:13px; color:var(--ink); margin-top:3px; white-space:pre-wrap;}
+  .messages{flex:1; background:var(--surface); border:1px solid var(--rule); border-radius:12px; padding:14px; overflow:auto;}
+  .message{margin-bottom:12px;}
+  .message .meta{font-size:11px; color:var(--muted);}
+  .message .meta b{color:var(--blue);}
+  .message .body{font-size:13px; color:var(--ink); margin-top:2px; white-space:pre-wrap; word-break:break-word;}
+  .composer{margin-top:10px; display:flex; gap:8px;}
+  .composer input{flex:1;}
+  .composer button{
+    padding:10px 16px; background:var(--blue); color:#fff; font-weight:700; border:none; border-radius:10px; cursor:pointer; font-family:inherit;
+  }
+
+  table.tbl{width:100%; border-collapse:collapse; background:var(--surface); border:1px solid var(--rule); border-radius:12px; overflow:hidden;}
+  .tbl th{text-align:left; color:var(--muted); font-size:11px; font-weight:700; padding:10px 12px; border-bottom:1px solid var(--rule); letter-spacing:.4px; text-transform:uppercase;}
+  .tbl td{padding:10px 12px; border-bottom:1px solid var(--rule); font-size:13px; color:var(--ink); vertical-align:middle;}
+  .tbl tr:last-child td{border-bottom:none;}
+  .tbl img.shot{height:38px; border-radius:6px; cursor:pointer; border:1px solid var(--rule-strong); display:block;}
+  .status-cell{display:flex; align-items:center; gap:7px;}
+
+  .week{display:grid; grid-template-columns:repeat(7,1fr); gap:8px; margin-bottom:14px;}
+  .week .day{
+    background:var(--surface); border:1px solid var(--rule); border-radius:10px; padding:8px; min-height:86px;
+  }
+  .week .day.today{border-color:var(--blue);}
+  .week .day .dhead{font-size:11px; font-weight:700; color:var(--muted); margin-bottom:6px; text-transform:uppercase;}
+  .week .day.today .dhead{color:var(--blue);}
+  .week .mchip{
+    background:var(--pill-bg); border:1px solid var(--pill-border); color:var(--blue);
+    font-size:11px; font-weight:700; border-radius:6px; padding:3px 6px; margin-bottom:4px;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .meeting-item{
+    background:var(--surface); border:1px solid var(--rule); border-radius:12px; padding:12px 14px;
+    display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px;
+  }
+  .meeting-item .left{min-width:0;}
+  .meeting-item .title{font-weight:700; font-size:14px; color:var(--ink);}
+  .meeting-item .sub{color:var(--muted); font-size:12px; margin-top:2px;}
+  .meeting-item .actions{display:flex; gap:8px; flex:0 0 auto; align-items:center;}
+  .room-card{border:1px solid var(--ok-border); background:var(--ok-bg);}
+  .participants{display:flex; flex-wrap:wrap; gap:10px; margin-top:10px;}
+  .participant{
+    display:flex; align-items:center; gap:8px; background:var(--surface);
+    border:1px solid var(--rule-strong); border-radius:999px; padding:6px 12px; font-weight:700; font-size:13px;
+  }
+  .form-grid{display:grid; grid-template-columns:2fr 1fr 1fr 1fr 1fr auto; gap:10px; align-items:end;}
+
+  .settings-box{max-width:520px;}
+  .settings-box .row2{display:flex; gap:10px; align-items:center; margin-top:10px;}
+
+  #shotOverlay{
+    display:none; position:fixed; inset:0; z-index:999; background:rgba(0,0,0,.75);
+    align-items:center; justify-content:center; cursor:pointer;
+  }
+  #shotOverlay.on{display:flex;}
+  #shotOverlayImg{max-width:92%; max-height:92%; border-radius:10px; box-shadow:0 20px 60px rgba(0,0,0,.5);}
+  #shotGrid{width:90%; max-width:1000px; max-height:88vh; overflow:auto; background:var(--surface); border-radius:14px; padding:18px; cursor:default;}
+  .shot-grid-head{font-weight:800; color:var(--ink); font-size:16px; margin-bottom:14px;}
+  .shot-grid-imgs{display:grid; grid-template-columns:repeat(auto-fill, minmax(200px,1fr)); gap:12px;}
+  .shot-cell img{width:100%; border-radius:8px; border:1px solid var(--rule-strong); cursor:pointer; display:block;}
+  .shot-when{font-size:11px; color:var(--muted); margin-top:4px; text-align:center;}
+
+  #splash{
+    position:fixed; inset:0; z-index:9999; background:#bdbdbd;
+    display:flex; align-items:center; justify-content:center; flex-direction:column;
+    transition:opacity .4s;
+  }
+  #splash.gone{opacity:0; pointer-events:none;}
+  #splash video{width:60%; max-width:520px; max-height:55vh; object-fit:contain;}
+  #splash .brand-lockup{text-align:center; margin-top:6px;}
+  #splash .brand-lockup .pri{font-size:30px; color:#00284d;}
+  #splash .brand-lockup .sec{font-size:14px;}
+  #splash .brand-lockup .slogan{font-size:13px;}
+
+  #toast{
+    position:fixed; bottom:18px; right:18px; z-index:900; display:none;
+    background:var(--surface); color:var(--ink); border:1px solid var(--rule-strong);
+    border-radius:10px; padding:10px 14px; font-size:13px; box-shadow:0 10px 26px rgba(0,0,0,.25);
+  }
+</style>
+</head>
+<body>
+
+<!-- SPLASH -->
+<div id="splash">
+  <video id="splashVideo" src="src/renderer/assets/startup.mp4" autoplay muted playsinline></video>
+  <div class="brand-lockup">
+    <div class="pri">Priority</div>
+    <div class="sec">Property Acquisition</div>
+    <div class="slogan">Acquiring Value, Investing Wisely</div>
+  </div>
+</div>
+
+<!-- LOGIN -->
+<div id="login" class="screen active">
+  <div class="card auth-card">
+    <img class="brand-img" src="src/renderer/assets/icon.png" alt="Priority Property Acquisition" />
+    <div class="brand-lockup">
+      <div class="pri">Priority</div>
+      <div class="sec">Property Acquisition</div>
+      <div class="slogan">Acquiring Value, Investing Wisely</div>
+    </div>
+    <div class="hint">Team Workspace — sign in with your account.</div>
+    <div class="row"><label>Email</label>
+      <input id="email" type="email" autocomplete="username" /></div>
+    <div class="row"><label>Password</label>
+      <input id="password" type="password" autocomplete="current-password" /></div>
+    <div class="check-row">
+      <input type="checkbox" id="rememberMe" />
+      <span>Keep me signed in on this computer</span>
+    </div>
+    <div class="error" id="loginError"></div>
+    <button class="primary" id="btnLogin">Sign in</button>
+    <span class="link" id="switchRegister">Create an account</span>
+    <span class="link" id="toggleServerBox">Server settings</span>
+    <div id="serverBox" style="display:none; margin-top:10px;">
+      <label>Server URL</label>
+      <input id="serverUrl" placeholder="http://192.168.1.50:3001" />
+      <div style="display:flex; gap:8px; margin-top:8px;">
+        <button class="chip" id="btnTestServer" style="flex:1;">Test connection</button>
+        <button class="chip blue" id="btnSaveServer" style="flex:1;">Save</button>
+      </div>
+      <div class="okmsg" id="serverMsg"></div>
+    </div>
+  </div>
+</div>
+
+<!-- REGISTER -->
+<div id="register" class="screen">
+  <div class="card auth-card">
+    <img class="brand-img" src="src/renderer/assets/icon.png" alt="Priority Property Acquisition" />
+    <div class="brand-lockup">
+      <div class="pri">Priority</div>
+      <div class="sec">Property Acquisition</div>
+    </div>
+    <div class="hint">New accounts start with the <b>employee</b> role; an admin or the owner can upgrade them.</div>
+    <div class="row"><label>Name</label><input id="regName" /></div>
+    <div class="row"><label>Email</label><input id="regEmail" type="email" /></div>
+    <div class="row"><label>Password</label><input id="regPass" type="password" /></div>
+    <div class="error" id="regError"></div>
+    <button class="primary" id="btnRegister">Create account</button>
+    <span class="link" id="switchLogin">I already have an account</span>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" class="screen">
+  <div class="topbar">
+    <div class="topbar-l">
+      <img src="src/renderer/assets/icon.png" alt="logo" />
+      <div class="brand-inline"><span class="pri">Priority</span><span class="sec">Property Acquisition</span></div>
+    </div>
+    <div class="topbar-r">
+      <span class="track-badge" id="trackBadge" style="display:none;">
+        <span class="dot on"></span><span id="trackBadgeTime">0:00</span>
+      </span>
+      <button class="icon-btn" id="btnActivity" title="Activity">
+        🔔<span class="badge-count" id="activityCount" style="display:none;">0</span>
+      </button>
+      <div class="menu-wrap">
+        <button class="icon-btn" id="btnGear" title="Menu">⚙️</button>
+        <div class="menu" id="gearMenu">
+          <div class="menu-user">
+            <div class="menu-name" id="menuName">—</div>
+            <div class="menu-role"><span class="pill" id="rolePill">—</span></div>
+          </div>
+          <button class="menu-item" data-go="settings">⚙️ Settings</button>
+          <button class="menu-item" data-go="help">💬 Support &amp; feedback</button>
+          <button class="menu-item" id="menuTheme">🌓 Switch theme</button>
+          <div class="menu-sep"></div>
+          <button class="menu-item danger" id="btnLogout">↩ Sign out</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="activity-panel" id="activityPanel">
+    <div class="activity-head">
+      <span>Activity</span>
+      <button class="chip" id="btnActivityRead" style="padding:4px 10px; font-size:11px;">Mark all read</button>
+    </div>
+    <div id="activityList"><span class="muted">Nothing new.</span></div>
+  </div>
+  <div class="main">
+    <div class="sidebar">
+      <div class="brand-block">
+        <img src="src/renderer/assets/icon.png" alt="logo" />
+        <div>
+          <div class="brand-inline"><span class="pri">Priority</span><span class="sec">Property Acquisition</span></div>
+          <div class="brand-sub" id="sideUserName">—</div>
+        </div>
+      </div>
+      <div class="nav" id="mainNav">
+        <button data-page="dashboard" class="active">Dashboard</button>
+        <button data-page="tracker">Time Tracking</button>
+        <button data-page="chat">Team Chat</button>
+        <button data-page="meetings">Meetings</button>
+        <button data-page="users">Users</button>
+        <button data-page="team" id="navTeam" style="display:none;">Team (admin)</button>
+        <button data-page="help">Help &amp; Feedback</button>
+        <button data-page="settings">Settings</button>
+      </div>
+      <div class="bottom">
+        <div class="muted" style="text-align:center;">Priority Property Acquisition</div>
+      </div>
+    </div>
+    <div class="content">
+
+      <!-- DASHBOARD -->
+      <div class="page active" id="page-dashboard">
+        <h2 class="page-title">Hello, <span id="nameLabel">—</span></h2>
+        <p class="muted" id="apiLabel"></p>
+        <div class="grid cols-4" style="margin-top:12px;">
+          <div class="card"><h4>Time today</h4><p class="big" id="dashTime">0:00</p><div class="sub" id="dashTimeSub">No active shift</div></div>
+          <div class="card"><h4>Activity</h4><p class="big" id="dashActivity">—</p><div class="sub">Keyboard / mouse this shift</div></div>
+          <div class="card"><h4>Online</h4><p class="big" id="dashOnline">—</p><div class="sub">Teammates connected</div></div>
+          <div class="card"><h4>Next meeting</h4><p class="big" id="dashMeeting">—</p><div class="sub" id="dashMeetingSub">Nothing scheduled</div></div>
+        </div>
+        <div class="grid cols-2" style="margin-top:14px;">
+          <div class="card">
+            <h4>Quick actions</h4>
+            <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">
+              <button class="chip green" id="dashBtnStart">Start shift</button>
+              <button class="chip danger" id="dashBtnStop" disabled>Stop</button>
+              <button class="chip" id="dashBtnChat">Open chat</button>
+              <button class="chip" id="dashBtnMeetings">Meetings</button>
+            </div>
+          </div>
+          <div class="card">
+            <h4>Shift status</h4>
+            <p class="big" id="dashTrack" style="font-size:18px; margin-top:6px;">—</p>
+            <div class="sub" id="dashTrackSub">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TRACKER -->
+      <div class="page" id="page-tracker">
+        <h2 class="page-title">Time Tracking</h2>
+        <div class="grid cols-2">
+          <div class="card">
+            <h4>Current shift</h4>
+            <div class="tracker-clock" id="clock">0:00:00</div>
+            <div class="tracker-state">
+              <div class="dot" id="stateDot"></div>
+              <span class="muted" id="stateLabel">No active shift</span>
+            </div>
+            <div style="display:flex; gap:8px; margin-top:16px;">
+              <button class="chip green" id="btnStart">Start</button>
+              <button class="chip" id="btnPause" disabled>Pause</button>
+              <button class="chip danger" id="btnStop" disabled>Stop</button>
+            </div>
+          </div>
+          <div class="card">
+            <h4>Shift stats</h4>
+            <div class="grid cols-2" style="margin-top:8px;">
+              <div><div class="muted">Time today</div><p class="big" id="statToday">0:00</p></div>
+              <div><div class="muted">Activity</div><p class="big" id="statActivity">—</p></div>
+              <div><div class="muted">Idle right now</div><p class="big" id="statIdle">—</p></div>
+              <div><div class="muted">Active window</div><div id="statWindow" style="font-weight:700; margin-top:6px; font-size:13px; word-break:break-all;">—</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="card" style="margin-top:14px;">
+          <h4>How it works</h4>
+          <div class="sub">
+            While your shift is running, the app records your activity level (keyboard/mouse) every
+            30 seconds, the application in the foreground, and takes a screenshot every
+            <span id="shotIntervalLabel">10</span> minutes. Everything is stored on the team server.
+          </div>
+          <div class="sub" id="webTrackNote" style="display:none; margin-top:10px; color:var(--danger);">
+            You're using the web version — automatic activity, active-app and screenshot capture
+            need the installed desktop app. Time still counts here.
+          </div>
+        </div>
+      </div>
+
+      <!-- CHAT -->
+      <div class="page" id="page-chat">
+        <h2 class="page-title">Property Acquisition Team Chat</h2>
+        <div class="chat-layout">
+          <div class="channel">
+            <div class="head">Channels</div>
+            <div id="channelList"></div>
+          </div>
+          <div class="chat-right">
+            <div class="chat-head">
+              <span id="chatTitle"># general</span>
+              <button class="chip danger" id="btnClearChat" style="display:none;">Clear chat</button>
+            </div>
+            <div class="messages" id="chatMessages"></div>
+            <div class="composer">
+              <input id="chatInput" placeholder="Type a message..." maxlength="4000" />
+              <button id="btnSend">Send</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MEETINGS -->
+      <div class="page" id="page-meetings">
+        <h2 class="page-title">Meetings</h2>
+
+        <div class="card room-card" id="roomCard" style="display:none; margin-bottom:14px;">
+          <h4>Voice channel — live</h4>
+          <div class="title" style="font-weight:800; font-size:16px;" id="roomTitle">—</div>
+          <div class="sub" id="roomHint">Live voice call — everyone in the room can hear each other.</div>
+          <div class="participants" id="roomParticipants"></div>
+          <div style="margin-top:12px; display:flex; gap:8px; align-items:center;">
+            <button class="chip" id="btnMute">🎤 Mute</button>
+            <button class="chip danger" id="btnLeaveRoom">Leave room</button>
+            <span class="muted" id="voiceStatus"></span>
+          </div>
+          <div id="remoteAudios" style="display:none;"></div>
+        </div>
+
+        <div class="week" id="weekStrip"></div>
+
+        <div class="card" id="scheduleCard" style="display:none; margin-bottom:14px;">
+          <h4>Schedule a meeting</h4>
+          <div class="form-grid" style="margin-top:8px;">
+            <div><label>Title</label><input id="mTitle" placeholder="Weekly planning" /></div>
+            <div><label>Date</label><input id="mDate" type="date" /></div>
+            <div><label>Time</label><input id="mTime" type="time" value="10:00" /></div>
+            <div><label>Duration</label>
+              <select id="mDuration">
+                <option value="15">15 min</option>
+                <option value="30" selected>30 min</option>
+                <option value="45">45 min</option>
+                <option value="60">1 hour</option>
+                <option value="90">1.5 hours</option>
+              </select>
+            </div>
+            <div><label>Channel</label>
+              <select id="mChannel">
+                <option value="general">general</option>
+                <option value="support">support</option>
+                <option value="executives">executives</option>
+              </select>
+            </div>
+            <button class="chip blue" id="btnSchedule" style="height:40px;">Schedule</button>
+          </div>
+          <div class="okmsg" id="mMsg"></div>
+        </div>
+
+        <h4 style="margin:0 0 10px; font-size:11px; color:var(--muted); font-weight:700; letter-spacing:.45px; text-transform:uppercase;">Upcoming</h4>
+        <div id="meetingList"></div>
+        <p class="muted" id="meetingEmpty" style="display:none;">No meetings scheduled yet.</p>
+        <p class="muted">Everyone gets a desktop notification when a meeting is scheduled and again 10 minutes before it starts — clicking it brings you here to join.</p>
+      </div>
+
+      <!-- USERS -->
+      <div class="page" id="page-users">
+        <h2 class="page-title">Users</h2>
+        <table class="tbl" id="usersTable"></table>
+        <p class="muted" id="usersHint" style="margin-top:10px; display:none;">
+          As owner you can change anyone's role or remove accounts. Admins can manage employees.
+        </p>
+      </div>
+
+      <!-- TEAM (admin/owner) -->
+      <div class="page" id="page-team">
+        <h2 class="page-title">Team — today</h2>
+        <table class="tbl">
+          <thead><tr><th>Name</th><th>Status</th><th>Time today</th><th>Activity</th><th>Last app</th><th>Latest</th><th>Controls</th></tr></thead>
+          <tbody id="teamBody"></tbody>
+        </table>
+        <p class="muted" style="margin-top:10px;">Refreshes every 30 seconds. Click a screenshot to enlarge it.</p>
+      </div>
+
+      <!-- HELP & FEEDBACK -->
+      <div class="page" id="page-help">
+        <h2 class="page-title">Help &amp; Feedback</h2>
+        <div class="grid cols-2">
+          <div class="card">
+            <h4>Report a problem / send feedback</h4>
+            <label style="margin-top:8px;">Type</label>
+            <select id="fbCategory">
+              <option value="problem">Report a problem</option>
+              <option value="suggestion">Suggestion</option>
+              <option value="question">Question</option>
+              <option value="other">Other</option>
+            </select>
+            <label style="margin-top:10px;">Message</label>
+            <textarea id="fbMessage" rows="5" placeholder="Tell us what happened or what you need..." maxlength="4000"></textarea>
+            <button class="chip blue" id="btnSendFb" style="margin-top:10px;">Send</button>
+            <div class="okmsg" id="fbMsg"></div>
+          </div>
+          <div class="card">
+            <h4>Quick help</h4>
+            <div class="sub" style="line-height:1.7;">
+              <b>Time tracking:</b> press Start in Time Tracking when your workday begins; Pause for breaks, Stop to finish. Your hours and activity are recorded automatically.<br /><br />
+              <b>Meetings:</b> you'll get a desktop notification when one is scheduled and 10 minutes before it starts. Click Join to enter the voice room and talk live.<br /><br />
+              <b>Chat:</b> use the team channels, or click a name under "Direct messages" for a private conversation.<br /><br />
+              <b>Something broken?</b> Use the form on the left — the owner reviews every report.
+            </div>
+          </div>
+        </div>
+        <div class="card" id="fbInbox" style="display:none; margin-top:14px;">
+          <h4>Received feedback</h4>
+          <div id="fbList"><span class="muted">Nothing yet.</span></div>
+        </div>
+      </div>
+
+      <!-- SETTINGS -->
+      <div class="page" id="page-settings">
+        <h2 class="page-title">Settings</h2>
+        <div class="card settings-box">
+          <h4>Appearance</h4>
+          <label style="margin-top:8px;">Theme</label>
+          <select id="setTheme">
+            <option value="dark">Dark</option>
+            <option value="light">Light</option>
+          </select>
+          <label style="margin-top:10px;">Font</label>
+          <select id="setFont">
+            <option value="'Segoe UI', Roboto, Helvetica, Arial, sans-serif">System (Segoe UI)</option>
+            <option value="'Montserrat', sans-serif">Montserrat</option>
+            <option value="Georgia, 'Times New Roman', serif">Serif (Georgia)</option>
+            <option value="'Consolas', 'Courier New', monospace">Monospace</option>
+          </select>
+          <label style="margin-top:10px;">Size &amp; zoom: <b id="scaleLabel">100%</b></label>
+          <input id="setScale" type="range" min="80" max="140" step="5" style="width:100%;" />
+          <div class="sub">Make everything bigger or smaller for easier reading. Applies instantly.</div>
+        </div>
+        <div class="card settings-box" id="cardEmpNote" style="display:none; margin-top:14px;">
+          <h4>Administered settings</h4>
+          <div class="sub">Server and monitoring settings are managed by your administrator.</div>
+        </div>
+        <div class="card settings-box" id="cardServer" style="margin-top:14px;">
+          <h4>Server</h4>
+          <label style="margin-top:8px;">Server URL (API)</label>
+          <input id="setServerUrl" placeholder="http://192.168.1.50:3001" />
+          <div class="row2">
+            <button class="chip" id="setBtnTest">Test connection</button>
+            <button class="chip blue" id="setBtnSaveServer">Save URL</button>
+          </div>
+          <div class="okmsg" id="setServerMsg"></div>
+          <div class="sub">For the office: the API runs on one PC/server and everyone points to its local IP, e.g. <b>http://192.168.1.50:3001</b>.</div>
+        </div>
+        <div class="card settings-box" id="cardMonitoring" style="margin-top:14px;">
+          <h4>Monitoring</h4>
+          <label style="margin-top:8px;">Screenshot interval (minutes)</label>
+          <input id="setShotInterval" type="number" min="1" max="60" />
+          <div class="check-row">
+            <input type="checkbox" id="setAllowMonitoring" />
+            <span>Allow screenshots and active-app tracking</span>
+          </div>
+          <button class="chip blue" id="setBtnSaveMon">Save monitoring</button>
+          <div class="okmsg" id="setMonMsg"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div id="shotOverlay">
+  <img id="shotOverlayImg" alt="screenshot" />
+  <div id="shotGrid" style="display:none;">
+    <div class="shot-grid-head" id="shotGridTitle">Screenshots</div>
+    <div class="shot-grid-imgs" id="shotGridImgs"></div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+
+  // ---------- State ----------
+  // Desktop app (has window.ppa) talks to the cloud server; the browser
+  // version is served BY that server, so it talks to its own origin.
+  const IS_DESKTOP = !!window.ppa;
+  let API = localStorage.getItem('ppa_api')
+    || (IS_DESKTOP ? 'https://priority-property-api.bonto.run' : window.location.origin);
+  let token = localStorage.getItem('ppa_token') || null;
+  let me = null;
+  let settings = { screenshotIntervalMinutes: 10, allowMonitoring: true };
+  let activeEntry = null;
+  let msTodayAtFetch = 0;
+  let summaryFetchTime = Date.now();
+  let samples = [];
+  let lastScreenshotAt = 0;
+  let chatChannel = 'general';
+  let lastMsgId = null;
+  let currentPage = 'dashboard';
+  let meetingsCache = [];
+  let meetingsPrimed = false;
+  let currentRoom = null;
+  const timers = {};
+
+  // ---------- Helpers ----------
+  function toast(msg) {
+    const t = $('toast');
+    t.textContent = msg;
+    t.style.display = 'block';
+    clearTimeout(timers.toast);
+    timers.toast = setTimeout(() => { t.style.display = 'none'; }, 3500);
+  }
+  function fmtHM(ms) {
+    const m = Math.floor(ms / 60000);
+    return Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0');
+  }
+  function fmtHMS(ms) {
+    const s = Math.floor(ms / 1000);
+    return Math.floor(s / 3600) + ':' + String(Math.floor(s / 60) % 60).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+  }
+  function fmtClock(iso) {
+    return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  }
+  function fmtDay(iso) {
+    return new Date(iso).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+  }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function notify(title, body, onclick) {
+    try {
+      const n = new Notification(title, { body });
+      if (onclick) n.onclick = () => { window.focus(); onclick(); };
+    } catch {}
+  }
+
+  // The cloud host may return an HTML "waking up" page while its container
+  // starts — real API responses are always JSON, so retry until it wakes.
+  async function fetchAwake(url, options) {
+    let r = null, raw = '';
+    for (let i = 0; i < 15; i++) {
+      r = await fetch(url, options);
+      raw = await r.text();
+      if (!/^\s*<(!doctype|html)/i.test(raw)) break;
+      await new Promise(res => setTimeout(res, 4000));
+    }
+    return { r, raw };
+  }
+
+  async function api(path, opts = {}) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    let r, raw;
+    try {
+      ({ r, raw } = await fetchAwake(API + path, { ...opts, headers }));
+    } catch {
+      throw new Error('Could not reach the server (' + API + ').');
+    }
+    if (r.status === 401 && me) {
+      const relogged = await tryAutoRelogin();
+      if (!relogged) { logout('Your session expired, please sign in again.'); throw new Error('Session expired.'); }
+      headers['Authorization'] = 'Bearer ' + token;
+      ({ r, raw } = await fetchAwake(API + path, { ...opts, headers }));
+    }
+    let data = null;
+    try { data = raw ? JSON.parse(raw) : null; } catch { data = { message: raw }; }
+    if (!r.ok) {
+      const msg = data && (data.message || data.error);
+      throw new Error(Array.isArray(msg) ? msg.join(', ') : (msg || ('Error ' + r.status)));
+    }
+    return data;
+  }
+
+  // ---------- Appearance (theme / font / scale) ----------
+  function applyTheme(t) {
+    document.documentElement.setAttribute('data-theme', t);
+    localStorage.setItem('ppa_theme', t);
+    if ($('setTheme')) $('setTheme').value = t;
+  }
+  function applyFont(f) {
+    document.documentElement.style.setProperty('--ui-font', f);
+    localStorage.setItem('ppa_font', f);
+    if ($('setFont')) $('setFont').value = f;
+  }
+  function applyScale(pct) {
+    const p = Math.max(80, Math.min(140, Number(pct) || 100));
+    document.documentElement.style.setProperty('--ui-scale', (p / 100).toFixed(2));
+    localStorage.setItem('ppa_scale', String(p));
+    if ($('setScale')) $('setScale').value = p;
+    if ($('scaleLabel')) $('scaleLabel').textContent = p + '%';
+  }
+  function toggleTheme() {
+    applyTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+  }
+  applyTheme(localStorage.getItem('ppa_theme') || 'dark');
+  applyFont(localStorage.getItem('ppa_font') || "'Segoe UI', Roboto, Helvetica, Arial, sans-serif");
+  applyScale(localStorage.getItem('ppa_scale') || 100);
+
+  // ---------- Top-bar menu + activity bell ----------
+  $('btnGear').addEventListener('click', (e) => {
+    e.stopPropagation();
+    $('activityPanel').classList.remove('on');
+    $('gearMenu').classList.toggle('on');
+  });
+  $('btnActivity').addEventListener('click', (e) => {
+    e.stopPropagation();
+    $('gearMenu').classList.remove('on');
+    const panel = $('activityPanel');
+    panel.classList.toggle('on');
+    if (panel.classList.contains('on')) openActivity();
+  });
+  document.addEventListener('click', () => {
+    $('gearMenu').classList.remove('on');
+    $('activityPanel').classList.remove('on');
+  });
+  $('gearMenu').addEventListener('click', (e) => e.stopPropagation());
+  $('activityPanel').addEventListener('click', (e) => e.stopPropagation());
+  $('menuTheme').addEventListener('click', toggleTheme);
+  document.querySelectorAll('#gearMenu [data-go]').forEach(b => {
+    b.addEventListener('click', () => { $('gearMenu').classList.remove('on'); showPage(b.getAttribute('data-go')); });
+  });
+
+  // ---------- Screens / navigation ----------
+  function show(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    $(id).classList.add('active');
+  }
+  function showPage(name) {
+    currentPage = name;
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    $('page-' + name)?.classList.add('active');
+    document.querySelectorAll('#mainNav button').forEach(b => b.classList.toggle('active', b.getAttribute('data-page') === name));
+    if (name === 'users') refreshUsers();
+    if (name === 'team') refreshTeam();
+    if (name === 'chat') { renderChannels(); refreshUsers(); pollChat(true); }
+    if (name === 'meetings') refreshMeetings();
+    if (name === 'settings') fillSettings();
+    if (name === 'help' && isAdminRole(me?.role)) loadFeedback();
+  }
+  document.querySelectorAll('#mainNav button').forEach(b => {
+    b.addEventListener('click', () => showPage(b.getAttribute('data-page')));
+  });
+
+  // ---------- Configurable server ----------
+  function fillServerInputs() { $('serverUrl').value = API; $('setServerUrl').value = API; }
+  function saveServer(inputId, msgId) {
+    const v = ($(inputId).value || '').trim().replace(/\/+$/, '');
+    if (!/^https?:\/\//.test(v)) { $(msgId).textContent = 'The URL must start with http://'; return; }
+    API = v;
+    localStorage.setItem('ppa_api', API);
+    $(msgId).textContent = 'Saved: ' + API;
+    $('apiLabel').textContent = 'Server: ' + API;
+    fillServerInputs();
+  }
+  async function testServer(inputId, msgId) {
+    const v = ($(inputId).value || '').trim().replace(/\/+$/, '');
+    $(msgId).textContent = 'Testing...';
+    try {
+      const r = await fetch(v + '/health');
+      const d = await r.json();
+      $(msgId).textContent = d.status === 'ok' ? 'Connection OK ✓' : 'Unexpected response';
+    } catch { $(msgId).textContent = 'No response. Is the API running at that address?'; }
+  }
+  $('toggleServerBox').addEventListener('click', () => {
+    const b = $('serverBox');
+    b.style.display = b.style.display === 'none' ? 'block' : 'none';
+    fillServerInputs();
+  });
+  $('btnSaveServer').addEventListener('click', () => saveServer('serverUrl', 'serverMsg'));
+  $('btnTestServer').addEventListener('click', () => testServer('serverUrl', 'serverMsg'));
+  $('setBtnSaveServer').addEventListener('click', () => saveServer('setServerUrl', 'setServerMsg'));
+  $('setBtnTest').addEventListener('click', () => testServer('setServerUrl', 'setServerMsg'));
+
+  // ---------- Remembered login ----------
+  function savedCreds() {
+    try { return JSON.parse(atob(localStorage.getItem('ppa_saved') || '')); } catch { return null; }
+  }
+  function storeCreds(email, password) {
+    if ($('rememberMe').checked) localStorage.setItem('ppa_saved', btoa(JSON.stringify({ email, password })));
+    else localStorage.removeItem('ppa_saved');
+  }
+  async function tryAutoRelogin() {
+    const creds = savedCreds();
+    if (!creds) return false;
+    try {
+      const r = await fetch(API + '/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(creds),
+      });
+      if (!r.ok) return false;
+      const data = await r.json();
+      token = data.accessToken;
+      localStorage.setItem('ppa_token', token);
+      return true;
+    } catch { return false; }
+  }
+
+  // ---------- Auth ----------
+  const isAdminRole = (r) => r === 'owner' || r === 'admin';
+
+  // Applies everything that depends on the current role; safe to call again
+  // when the role changes mid-session (owner promotes someone) — no relogin.
+  function applyRoleUI() {
+    const admin = isAdminRole(me.role);
+    $('nameLabel').textContent = me.name;
+    $('sideUserName').textContent = me.name;
+    $('menuName').textContent = me.name;
+    $('rolePill').textContent = me.role;
+    $('apiLabel').textContent = 'Server: ' + API;
+    $('navTeam').style.display = admin ? 'block' : 'none';
+    $('scheduleCard').style.display = admin ? 'block' : 'none';
+    $('cardServer').style.display = admin ? 'block' : 'none';
+    $('cardMonitoring').style.display = admin ? 'block' : 'none';
+    $('cardEmpNote').style.display = admin ? 'none' : 'block';
+    $('fbInbox').style.display = admin ? 'block' : 'none';
+    $('usersHint').style.display = admin ? 'block' : 'none';
+  }
+
+  async function enterApp(user) {
+    me = user;
+    applyRoleUI();
+    if (!IS_DESKTOP) $('webTrackNote').style.display = 'block';
+    show('app');
+    showPage('dashboard');
+    try { settings = await api('/time-tracking/settings'); } catch {}
+    $('shotIntervalLabel').textContent = settings.screenshotIntervalMinutes;
+    try { activeEntry = await api('/time-tracking/active'); } catch { activeEntry = null; }
+    if (activeEntry) samples = [];
+    setTrackingUI();
+    await refreshSummary();
+    startLoops();
+    refreshUsers();
+    refreshMeetings();
+  }
+
+  function logout(msg) {
+    stopLoops();
+    if (currentRoom) leaveRoom();
+    chatChannel = 'general'; usersCache = [];
+    $('chatMessages').innerHTML = '';
+    token = null; me = null; activeEntry = null; lastMsgId = null; meetingsPrimed = false;
+    localStorage.removeItem('ppa_token');
+    show('login');
+    if (msg) $('loginError').textContent = msg;
+  }
+  $('btnLogout').addEventListener('click', () => logout());
+
+  $('btnLogin').addEventListener('click', doLogin);
+  $('password').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+  async function doLogin() {
+    $('loginError').textContent = '';
+    $('btnLogin').disabled = true;
+    const email = $('email').value.trim();
+    const password = $('password').value;
+    try {
+      const data = await api('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+      token = data.accessToken;
+      localStorage.setItem('ppa_token', token);
+      storeCreds(email, password);
+      await enterApp(data.user);
+    } catch (e) {
+      $('loginError').textContent = e.message === 'Invalid credentials' ? 'Wrong email or password.' : e.message;
+    } finally { $('btnLogin').disabled = false; }
+  }
+
+  $('switchRegister').addEventListener('click', () => { $('regError').textContent = ''; show('register'); });
+  $('switchLogin').addEventListener('click', () => show('login'));
+  $('btnRegister').addEventListener('click', async () => {
+    $('regError').textContent = '';
+    $('btnRegister').disabled = true;
+    try {
+      const data = await api('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({ name: $('regName').value.trim(), email: $('regEmail').value.trim(), password: $('regPass').value }),
+      });
+      token = data.accessToken;
+      localStorage.setItem('ppa_token', token);
+      await enterApp(data.user);
+    } catch (e) { $('regError').textContent = e.message; }
+    finally { $('btnRegister').disabled = false; }
+  });
+
+  // ---------- Time tracking ----------
+  function setTrackingUI() {
+    const on = !!activeEntry;
+    $('btnStart').disabled = on;
+    $('btnPause').disabled = !on;
+    $('btnStop').disabled = !on;
+    $('dashBtnStart').disabled = on;
+    $('dashBtnStop').disabled = !on;
+    $('trackBadge').style.display = on ? 'inline-flex' : 'none';
+    $('dashTrack').textContent = on ? 'Active' : 'Stopped';
+    $('dashTrackSub').textContent = on ? ('Since ' + fmtClock(activeEntry.startTime)) : 'Start it from Time Tracking';
+    $('stateLabel').textContent = on ? ('Working since ' + fmtClock(activeEntry.startTime)) : 'No active shift';
+    $('stateDot').className = 'dot' + (on ? ' on' : '');
+    if (!on) { $('statIdle').textContent = '—'; $('statWindow').textContent = '—'; }
+  }
+
+  async function refreshSummary() {
+    try {
+      const s = await api('/time-tracking/summary');
+      msTodayAtFetch = s.msToday;
+      summaryFetchTime = Date.now();
+      activeEntry = s.activeEntry;
+      const act = s.activityPercent;
+      $('dashActivity').textContent = act == null ? '—' : act + '%';
+      $('statActivity').textContent = act == null ? '—' : act + '%';
+      setTrackingUI();
+    } catch {}
+  }
+
+  function displayedMsToday() {
+    return msTodayAtFetch + (activeEntry ? Date.now() - summaryFetchTime : 0);
+  }
+
+  async function startTracking() {
+    try {
+      activeEntry = await api('/time-tracking/start', { method: 'POST', body: JSON.stringify({}) });
+      samples = [];
+      lastScreenshotAt = Date.now();
+      await refreshSummary();
+      toast('Shift started.');
+    } catch (e) { toast(e.message); }
+  }
+  async function pauseTracking() {
+    if (!activeEntry) return;
+    try {
+      await api('/time-tracking/pause', { method: 'POST', body: JSON.stringify({ entryId: activeEntry.id }) });
+      activeEntry = null;
+      await refreshSummary();
+      toast('Shift paused. Starting again opens a new segment.');
+    } catch (e) { toast(e.message); }
+  }
+  async function stopTracking() {
+    if (!activeEntry) return;
+    try {
+      await api('/time-tracking/stop', { method: 'POST', body: JSON.stringify({ entryId: activeEntry.id }) });
+      activeEntry = null;
+      await refreshSummary();
+      toast('Shift stopped.');
+    } catch (e) { toast(e.message); }
+  }
+  $('btnStart').addEventListener('click', startTracking);
+  $('btnPause').addEventListener('click', pauseTracking);
+  $('btnStop').addEventListener('click', stopTracking);
+  $('dashBtnStart').addEventListener('click', startTracking);
+  $('dashBtnStop').addEventListener('click', stopTracking);
+  $('dashBtnChat').addEventListener('click', () => showPage('chat'));
+  $('dashBtnMeetings').addEventListener('click', () => showPage('meetings'));
+
+  async function monitorTick() {
+    if (!activeEntry || !window.ppa) return;
+    try {
+      const idleSec = await window.ppa.getIdleSeconds();
+      samples.push(idleSec < 60);
+      if (samples.length > 10) samples.shift();
+      const percent = Math.round(100 * samples.filter(Boolean).length / samples.length);
+      $('statIdle').textContent = idleSec < 60 ? 'Active' : Math.floor(idleSec / 60) + ' min idle';
+      $('stateDot').className = 'dot ' + (idleSec < 60 ? 'on' : 'idle');
+      await api('/time-tracking/activity', {
+        method: 'POST',
+        body: JSON.stringify({ entryId: activeEntry.id, percent, idleMs: idleSec * 1000 }),
+      });
+      $('dashActivity').textContent = percent + '%';
+      $('statActivity').textContent = percent + '%';
+
+      if (settings.allowMonitoring) {
+        const w = await window.ppa.getActiveWindow();
+        if (w && w.app) {
+          $('statWindow').textContent = w.app + (w.title ? ' — ' + w.title : '');
+          await api('/time-tracking/usage', {
+            method: 'POST',
+            body: JSON.stringify({ entryId: activeEntry.id, appName: w.app, windowTitle: w.title || '' }),
+          });
+        }
+        const intervalMs = (settings.screenshotIntervalMinutes || 10) * 60000;
+        if (Date.now() - lastScreenshotAt >= intervalMs) {
+          lastScreenshotAt = Date.now();
+          const shot = await window.ppa.captureScreen();
+          if (shot) {
+            await api('/time-tracking/screenshots', {
+              method: 'POST',
+              body: JSON.stringify({ entryId: activeEntry.id, imageBase64: shot }),
+            });
+          }
+        }
+      }
+    } catch {}
+  }
+
+  // ---------- Chat ----------
+  let channels = ['general', 'support', 'executives'];
+  let usersCache = [];
+
+  function dmChannelFor(otherId) {
+    return 'dm:' + [me.id, otherId].sort().join(':');
+  }
+  function channelLabel(ch) {
+    if (!ch.startsWith('dm:')) return '# ' + ch;
+    const otherId = ch.split(':').slice(1).find(id => id !== me.id);
+    const other = usersCache.find(u => u.id === otherId);
+    return '🔒 ' + (other ? other.name : 'Direct message');
+  }
+  function updateChatHeader() {
+    $('chatTitle').textContent = channelLabel(chatChannel);
+    const isDm = chatChannel.startsWith('dm:');
+    $('btnClearChat').style.display = (isDm || isAdminRole(me.role)) ? 'inline-block' : 'none';
+  }
+
+  function renderChannels() {
+    const pub = channels.map(c =>
+      '<div class="item' + (c === chatChannel ? ' on' : '') + '" data-ch="' + c + '"># ' + esc(c) + '</div>'
+    ).join('');
+    const others = usersCache.filter(u => u.id !== me.id);
+    const dms = others.map(u => {
+      const ch = dmChannelFor(u.id);
+      return '<div class="item' + (ch === chatChannel ? ' on' : '') + '" data-ch="' + ch + '">'
+        + '<span style="display:inline-flex;align-items:center;gap:6px;">'
+        + '<span class="dot' + (u.online ? ' on' : '') + '" style="width:8px;height:8px;"></span>'
+        + esc(u.name) + '</span></div>';
+    }).join('');
+    $('channelList').innerHTML = pub
+      + '<div class="head" style="margin-top:12px;">Direct messages</div>'
+      + (dms || '<div class="item" style="cursor:default;">Nobody else yet</div>');
+    document.querySelectorAll('#channelList .item[data-ch]').forEach(el => {
+      el.addEventListener('click', () => {
+        chatChannel = el.getAttribute('data-ch');
+        lastMsgId = null;
+        $('chatMessages').innerHTML = '';
+        renderChannels();
+        updateChatHeader();
+        pollChat(true);
+      });
+    });
+    updateChatHeader();
+  }
+
+  $('btnClearChat').addEventListener('click', async () => {
+    if (!confirm('Clear all messages in "' + channelLabel(chatChannel) + '"? This cannot be undone.')) return;
+    try {
+      await api('/chat/messages?channel=' + encodeURIComponent(chatChannel), { method: 'DELETE' });
+      lastMsgId = null;
+      $('chatMessages').innerHTML = '';
+      toast('Chat cleared.');
+    } catch (e) { toast(e.message); }
+  });
+
+  function appendMessages(list) {
+    if (!list.length) return;
+    const box = $('chatMessages');
+    for (const m of list) {
+      const div = document.createElement('div');
+      div.className = 'message';
+      div.innerHTML = '<div class="meta"><b>' + esc(m.name) + '</b> — ' + fmtClock(m.at) + '</div>'
+        + '<div class="body">' + esc(m.body) + '</div>';
+      box.appendChild(div);
+      lastMsgId = m.id;
+    }
+    box.scrollTop = box.scrollHeight;
+  }
+
+  let chatBusy = false;
+  async function pollChat(reset) {
+    if (!me || chatBusy) return;
+    chatBusy = true;
+    try {
+      const q = '/chat/messages?channel=' + encodeURIComponent(chatChannel) + (lastMsgId && !reset ? '&after=' + encodeURIComponent(lastMsgId) : '');
+      const list = await api(q);
+      if (reset) { $('chatMessages').innerHTML = ''; lastMsgId = null; }
+      appendMessages(list);
+    } catch {} finally { chatBusy = false; }
+  }
+
+  async function sendChat() {
+    const input = $('chatInput');
+    const text = (input.value || '').trim();
+    if (!text) return;
+    input.value = '';
+    try {
+      await api('/chat/messages', { method: 'POST', body: JSON.stringify({ channel: chatChannel, body: text }) });
+      await pollChat(false);
+    } catch (e) { toast(e.message); input.value = text; }
+  }
+  $('btnSend').addEventListener('click', sendChat);
+  $('chatInput').addEventListener('keydown', e => { if (e.key === 'Enter') sendChat(); });
+
+  // ---------- Meetings ----------
+  const seenNew = new Set(JSON.parse(localStorage.getItem('ppa_seen_meet') || '[]'));
+  const seenStart = new Set(JSON.parse(localStorage.getItem('ppa_start_meet') || '[]'));
+  function persistSeen() {
+    localStorage.setItem('ppa_seen_meet', JSON.stringify([...seenNew].slice(-200)));
+    localStorage.setItem('ppa_start_meet', JSON.stringify([...seenStart].slice(-200)));
+  }
+
+  function meetingStatus(m) {
+    const start = new Date(m.startsAt).getTime();
+    const end = start + m.durationMinutes * 60000;
+    const now = Date.now();
+    if (now >= start && now < end) return { key: 'live', label: 'In progress' };
+    if (now < start) {
+      const mins = Math.round((start - now) / 60000);
+      if (mins < 60) return { key: 'soon', label: 'Starts in ' + mins + ' min' };
+      return { key: 'later', label: fmtDay(m.startsAt) + ' at ' + fmtClock(m.startsAt) };
+    }
+    return { key: 'ended', label: 'Ended' };
+  }
+
+  function renderWeekStrip() {
+    const days = [];
+    const today = new Date();
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i);
+      const dayMeetings = meetingsCache.filter(m => {
+        const s = new Date(m.startsAt);
+        return s.getFullYear() === d.getFullYear() && s.getMonth() === d.getMonth() && s.getDate() === d.getDate();
+      });
+      days.push(
+        '<div class="day' + (i === 0 ? ' today' : '') + '">'
+        + '<div class="dhead">' + (i === 0 ? 'Today' : d.toLocaleDateString([], { weekday: 'short', day: 'numeric' })) + '</div>'
+        + dayMeetings.map(m => '<div class="mchip" title="' + esc(m.title) + '">' + fmtClock(m.startsAt) + ' ' + esc(m.title) + '</div>').join('')
+        + '</div>'
+      );
+    }
+    $('weekStrip').innerHTML = days.join('');
+  }
+
+  function renderMeetings() {
+    renderWeekStrip();
+    const upcoming = meetingsCache.filter(m => meetingStatus(m).key !== 'ended');
+    $('meetingEmpty').style.display = upcoming.length ? 'none' : 'block';
+    $('meetingList').innerHTML = upcoming.map(m => {
+      const st = meetingStatus(m);
+      const badge = st.key === 'live' ? '<span class="badge green">In progress</span>'
+        : st.key === 'soon' ? '<span class="badge">' + esc(st.label) + '</span>' : '';
+      const del = isAdminRole(me.role) ? '<button class="chip danger" data-del="' + m.id + '">Delete</button>' : '';
+      return '<div class="meeting-item">'
+        + '<div class="left"><div class="title">' + esc(m.title) + ' ' + badge + '</div>'
+        + '<div class="sub">' + fmtDay(m.startsAt) + ' at ' + fmtClock(m.startsAt) + ' · ' + m.durationMinutes + ' min · #'
+        + esc(m.channel) + ' · by ' + esc(m.createdByName || 'admin') + '</div></div>'
+        + '<div class="actions"><button class="chip green" data-join="' + m.id + '">'
+        + (currentRoom === m.id ? 'In the room' : 'Join') + '</button>' + del + '</div>'
+        + '</div>';
+    }).join('');
+    document.querySelectorAll('#meetingList [data-join]').forEach(b =>
+      b.addEventListener('click', () => joinRoom(b.getAttribute('data-join'))));
+    document.querySelectorAll('#meetingList [data-del]').forEach(b =>
+      b.addEventListener('click', async () => {
+        try { await api('/meetings/' + b.getAttribute('data-del'), { method: 'DELETE' }); refreshMeetings(); }
+        catch (e) { toast(e.message); }
+      }));
+    const next = upcoming[0];
+    if (next) {
+      $('dashMeeting').textContent = fmtClock(next.startsAt);
+      $('dashMeetingSub').textContent = next.title + ' · ' + fmtDay(next.startsAt);
+    } else {
+      $('dashMeeting').textContent = '—';
+      $('dashMeetingSub').textContent = 'Nothing scheduled';
+    }
+  }
+
+  function checkMeetingNotifications() {
+    const now = Date.now();
+    for (const m of meetingsCache) {
+      const start = new Date(m.startsAt).getTime();
+      const end = start + m.durationMinutes * 60000;
+      if (!seenNew.has(m.id)) {
+        seenNew.add(m.id);
+        if (meetingsPrimed && start > now && m.createdBy !== me.id) {
+          notify('Meeting scheduled', m.title + ' — ' + fmtDay(m.startsAt) + ' at ' + fmtClock(m.startsAt), () => showPage('meetings'));
+        }
+      }
+      if (!seenStart.has(m.id) && now >= start - 10 * 60000 && now < end) {
+        seenStart.add(m.id);
+        notify('Meeting ready to join', m.title + ' starts at ' + fmtClock(m.startsAt) + '. Click to join.', () => { showPage('meetings'); joinRoom(m.id); });
+      }
+    }
+    meetingsPrimed = true;
+    persistSeen();
+  }
+
+  async function refreshMeetings() {
+    if (!me) return;
+    try {
+      meetingsCache = await api('/meetings');
+      renderMeetings();
+      checkMeetingNotifications();
+    } catch {}
+  }
+
+  $('btnSchedule').addEventListener('click', async () => {
+    $('mMsg').textContent = '';
+    const title = $('mTitle').value.trim();
+    const date = $('mDate').value;
+    const time = $('mTime').value;
+    if (!title || !date || !time) { $('mMsg').textContent = 'Title, date and time are required.'; return; }
+    try {
+      await api('/meetings', {
+        method: 'POST',
+        body: JSON.stringify({
+          title,
+          startsAt: new Date(date + 'T' + time).toISOString(),
+          durationMinutes: Number($('mDuration').value),
+          channel: $('mChannel').value,
+        }),
+      });
+      $('mTitle').value = '';
+      $('mMsg').textContent = 'Meeting scheduled ✓ — everyone will be notified.';
+      refreshMeetings();
+    } catch (e) { $('mMsg').textContent = e.message; }
+  });
+
+  // ---------- Meeting room: live voice (WebRTC mesh over REST signaling) ----------
+  const ICE_SERVERS = [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+  ];
+  const rtc = { pcs: new Map(), names: new Map(), localStream: null, muted: false, listener: false };
+
+  async function startMic() {
+    try {
+      rtc.localStream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
+      rtc.listener = false;
+      $('voiceStatus').textContent = '';
+    } catch {
+      rtc.localStream = null;
+      rtc.listener = true;
+      $('voiceStatus').textContent = 'No microphone — listening only.';
+    }
+  }
+
+  function ensurePeer(userId, name, initiator) {
+    if (rtc.pcs.has(userId)) return rtc.pcs.get(userId);
+    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+    rtc.pcs.set(userId, pc);
+    rtc.names.set(userId, name);
+    if (rtc.localStream) {
+      rtc.localStream.getTracks().forEach(t => { t.enabled = !rtc.muted; pc.addTrack(t, rtc.localStream); });
+    } else {
+      pc.addTransceiver('audio', { direction: 'recvonly' });
+    }
+    pc.onicecandidate = (e) => {
+      if (e.candidate && currentRoom) {
+        api('/meetings/' + currentRoom + '/signal', {
+          method: 'POST',
+          body: JSON.stringify({ to: userId, type: 'ice', data: e.candidate }),
+        }).catch(() => {});
+      }
+    };
+    pc.ontrack = (e) => {
+      let el = document.getElementById('audio-' + userId);
+      if (!el) {
+        el = document.createElement('audio');
+        el.id = 'audio-' + userId;
+        el.autoplay = true;
+        $('remoteAudios').appendChild(el);
+      }
+      el.srcObject = e.streams[0];
+    };
+    pc.onconnectionstatechange = () => {
+      if (['failed', 'closed'].includes(pc.connectionState)) dropPeer(userId);
+      renderRoomRoster();
+    };
+    if (initiator) {
+      (async () => {
+        try {
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+          await api('/meetings/' + currentRoom + '/signal', {
+            method: 'POST',
+            body: JSON.stringify({ to: userId, type: 'offer', data: pc.localDescription }),
+          });
+        } catch {}
+      })();
+    }
+    return pc;
+  }
+
+  function dropPeer(userId) {
+    const pc = rtc.pcs.get(userId);
+    if (pc) { try { pc.close(); } catch {} }
+    rtc.pcs.delete(userId);
+    document.getElementById('audio-' + userId)?.remove();
+  }
+
+  async function handleSignal(s) {
+    if (!currentRoom) return;
+    try {
+      // On an incoming offer we are always the callee for that pair.
+      const pc = ensurePeer(s.from, s.fromName, false);
+      if (s.type === 'offer') {
+        await pc.setRemoteDescription(new RTCSessionDescription(s.data));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        await api('/meetings/' + currentRoom + '/signal', {
+          method: 'POST',
+          body: JSON.stringify({ to: s.from, type: 'answer', data: pc.localDescription }),
+        });
+      } else if (s.type === 'answer') {
+        if (pc.signalingState === 'have-local-offer') {
+          await pc.setRemoteDescription(new RTCSessionDescription(s.data));
+        }
+      } else if (s.type === 'ice') {
+        try { await pc.addIceCandidate(new RTCIceCandidate(s.data)); } catch {}
+      }
+    } catch {}
+  }
+
+  async function pollSignals() {
+    if (!currentRoom) return;
+    try {
+      const list = await api('/meetings/' + currentRoom + '/signals');
+      for (const s of list) await handleSignal(s);
+    } catch {}
+  }
+
+  let lastRoster = [];
+  function renderRoomRoster() {
+    $('roomParticipants').innerHTML = lastRoster.map(p => {
+      if (p.id === me.id) {
+        return '<div class="participant"><div class="dot on"></div>' + esc(p.name) + ' (you)'
+          + (rtc.muted ? ' 🔇' : '') + '</div>';
+      }
+      const pc = rtc.pcs.get(p.id);
+      const st = pc ? pc.connectionState : 'connecting';
+      const dot = st === 'connected' ? 'on' : 'idle';
+      const label = st === 'connected' ? '' : ' <span class="muted">(connecting...)</span>';
+      return '<div class="participant"><div class="dot ' + dot + '"></div>' + esc(p.name)
+        + (p.role === 'owner' ? ' <span class="badge">owner</span>' : '') + label + '</div>';
+    }).join('') || '<span class="muted">Nobody here yet.</span>';
+  }
+
+  async function roomPing() {
+    if (!currentRoom) return;
+    try {
+      const r = await api('/meetings/' + currentRoom + '/ping', { method: 'POST', body: '{}' });
+      lastRoster = r.participants;
+      // Mesh reconciliation: deterministic initiator (lower id calls higher id)
+      for (const p of r.participants) {
+        if (p.id === me.id) continue;
+        if (!rtc.pcs.has(p.id) && me.id < p.id) ensurePeer(p.id, p.name, true);
+      }
+      // Drop peers who left the room
+      const present = new Set(r.participants.map(p => p.id));
+      for (const userId of [...rtc.pcs.keys()]) {
+        if (!present.has(userId)) dropPeer(userId);
+      }
+      renderRoomRoster();
+    } catch {}
+  }
+
+  async function joinRoom(meetingId) {
+    const m = meetingsCache.find(x => x.id === meetingId);
+    if (!m) return;
+    if (currentRoom && currentRoom !== meetingId) await leaveRoom();
+    currentRoom = meetingId;
+    $('roomCard').style.display = 'block';
+    $('roomTitle').textContent = m.title + ' — ' + fmtDay(m.startsAt) + ' at ' + fmtClock(m.startsAt);
+    showPage('meetings');
+    await startMic();
+    await roomPing();
+    clearInterval(timers.room);
+    clearInterval(timers.signals);
+    timers.room = setInterval(roomPing, 10000);
+    timers.signals = setInterval(pollSignals, 1500);
+    renderMeetings();
+  }
+
+  async function leaveRoom() {
+    clearInterval(timers.room);
+    clearInterval(timers.signals);
+    for (const userId of [...rtc.pcs.keys()]) dropPeer(userId);
+    if (rtc.localStream) { rtc.localStream.getTracks().forEach(t => t.stop()); rtc.localStream = null; }
+    rtc.muted = false;
+    $('btnMute').textContent = '🎤 Mute';
+    $('voiceStatus').textContent = '';
+    if (currentRoom) { try { await api('/meetings/' + currentRoom + '/leave', { method: 'POST', body: '{}' }); } catch {} }
+    currentRoom = null;
+    $('roomCard').style.display = 'none';
+    renderMeetings();
+  }
+  $('btnLeaveRoom').addEventListener('click', leaveRoom);
+
+  $('btnMute').addEventListener('click', () => {
+    rtc.muted = !rtc.muted;
+    if (rtc.localStream) rtc.localStream.getTracks().forEach(t => { t.enabled = !rtc.muted; });
+    $('btnMute').textContent = rtc.muted ? '🔇 Unmute' : '🎤 Mute';
+    renderRoomRoster();
+  });
+
+  // ---------- Users / Team ----------
+  async function refreshUsers() {
+    if (!me) return;
+    try {
+      const users = await api('/users');
+      usersCache = users;
+      $('dashOnline').textContent = users.filter(u => u.online && u.id !== me.id).length;
+      renderUsersTable();
+      if (currentPage === 'chat') renderChannels();
+    } catch {}
+  }
+
+  function renderUsersTable() {
+    const admin = isAdminRole(me.role);
+    const head = '<thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th>'
+      + (admin ? '<th>Actions</th>' : '') + '</tr></thead>';
+    const rows = usersCache.map(u => {
+      const status = '<div class="status-cell"><div class="dot' + (u.online ? ' on' : '') + '"></div>'
+        + (u.online ? 'Online' : 'Offline') + '</div>';
+      let roleCell = '<span class="badge">' + esc(u.role) + '</span>';
+      let actions = '';
+      if (admin) {
+        // Nobody edits themselves; only an owner may touch another owner.
+        const editable = u.id !== me.id && (me.role === 'owner' || u.role !== 'owner');
+        if (editable) {
+          roleCell = '<select class="role-sel" data-uid="' + u.id + '" style="width:auto; padding:6px 8px;">'
+            + ['owner', 'admin', 'employee'].map(r =>
+                '<option value="' + r + '"' + (u.role === r ? ' selected' : '') + '>' + r + '</option>').join('')
+            + '</select>';
+        }
+        const canDelete = me.role === 'owner' && u.id !== me.id;
+        actions = canDelete
+          ? '<button class="chip danger" data-del-user="' + u.id + '" data-name="' + esc(u.name) + '">Remove</button>'
+          : '<span class="muted">—</span>';
+      }
+      return '<tr><td>' + esc(u.name) + (u.id === me.id ? ' <span class="muted">(you)</span>' : '') + '</td>'
+        + '<td>' + esc(u.email) + '</td><td>' + roleCell + '</td><td>' + status + '</td>'
+        + (admin ? '<td>' + actions + '</td>' : '') + '</tr>';
+    }).join('');
+    $('usersTable').innerHTML = head + '<tbody>' + rows + '</tbody>';
+
+    document.querySelectorAll('#usersTable .role-sel').forEach(sel => {
+      sel.addEventListener('change', async () => {
+        try {
+          const u = await api('/users/' + sel.getAttribute('data-uid') + '/role', {
+            method: 'PUT',
+            body: JSON.stringify({ role: sel.value }),
+          });
+          toast(u.name + ' is now ' + u.role + '.');
+          refreshUsers();
+        } catch (e) { toast(e.message); refreshUsers(); }
+      });
+    });
+    document.querySelectorAll('#usersTable [data-del-user]').forEach(b => {
+      b.addEventListener('click', async () => {
+        const name = b.getAttribute('data-name');
+        if (!confirm('Remove ' + name + '? They will no longer be able to sign in.')) return;
+        try {
+          await api('/users/' + b.getAttribute('data-del-user'), { method: 'DELETE' });
+          toast(name + ' removed.');
+          refreshUsers();
+        } catch (e) { toast(e.message); }
+      });
+    });
+  }
+
+  // ---------- Feedback ----------
+  $('btnSendFb').addEventListener('click', async () => {
+    $('fbMsg').textContent = '';
+    const message = $('fbMessage').value.trim();
+    if (!message) { $('fbMsg').textContent = 'Please write a message first.'; return; }
+    try {
+      await api('/feedback', {
+        method: 'POST',
+        body: JSON.stringify({ category: $('fbCategory').value, message }),
+      });
+      $('fbMessage').value = '';
+      $('fbMsg').textContent = 'Sent — thank you! The owner will review it.';
+    } catch (e) { $('fbMsg').textContent = e.message; }
+  });
+
+  async function loadFeedback() {
+    try {
+      const items = await api('/feedback');
+      $('fbList').innerHTML = items.length ? items.map(f =>
+        '<div class="fb-item"><div class="meta"><b>' + esc(f.name) + '</b> (' + esc(f.email) + ') · '
+        + esc(f.category) + ' · ' + fmtDay(f.at) + ' ' + fmtClock(f.at)
+        + ' &nbsp;<button class="chip" style="padding:3px 8px;font-size:11px;" data-fb-del="' + f.id + '">Resolve</button></div>'
+        + '<div class="body">' + esc(f.message) + '</div></div>'
+      ).join('') : '<span class="muted">Nothing yet.</span>';
+      document.querySelectorAll('#fbList [data-fb-del]').forEach(b => {
+        b.addEventListener('click', async () => {
+          try { await api('/feedback/' + b.getAttribute('data-fb-del'), { method: 'DELETE' }); loadFeedback(); }
+          catch (e) { toast(e.message); }
+        });
+      });
+    } catch {}
+  }
+
+  async function refreshTeam() {
+    if (!me || !isAdminRole(me.role)) return;
+    try {
+      const team = await api('/time-tracking/team');
+      $('teamBody').innerHTML = team.map(u => {
+        const status = u.tracking ? '<span class="badge green">Working</span>'
+          : (u.online ? '<span class="badge">Online</span>' : '<span class="badge red">Offline</span>');
+        const shot = u.lastScreenshot
+          ? '<img class="shot" src="' + API + esc(u.lastScreenshot) + '" data-full="' + API + esc(u.lastScreenshot) + '" />'
+          : '<span class="muted">—</span>';
+        // Owner/admin controls: force-start a forgotten shift, or stop one.
+        let ctrl = '';
+        if (u.id !== me.id) {
+          ctrl = u.tracking
+            ? '<button class="chip danger" data-stop="' + u.id + '" data-entry="' + u.activeEntryId + '">Stop</button>'
+            : '<button class="chip green" data-startfor="' + u.id + '">Start shift</button>';
+        }
+        ctrl += ' <button class="chip" data-shots="' + u.id + '" data-name="' + esc(u.name) + '">Screenshots</button>';
+        return '<tr><td>' + esc(u.name) + '</td><td>' + status + '</td>'
+          + '<td>' + fmtHM(u.msToday) + '</td>'
+          + '<td>' + (u.activityPercent == null ? '—' : u.activityPercent + '%') + '</td>'
+          + '<td style="max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">'
+          + esc(u.lastApp ? u.lastApp + (u.lastWindowTitle ? ' — ' + u.lastWindowTitle : '') : '—') + '</td>'
+          + '<td>' + shot + '</td>'
+          + '<td style="white-space:nowrap;">' + ctrl + '</td></tr>';
+      }).join('');
+      document.querySelectorAll('#teamBody img.shot').forEach(img => {
+        img.addEventListener('click', () => openShot(img.getAttribute('data-full')));
+      });
+      document.querySelectorAll('#teamBody [data-startfor]').forEach(b => {
+        b.addEventListener('click', async () => {
+          try { await api('/time-tracking/admin/start', { method: 'POST', body: JSON.stringify({ userId: b.getAttribute('data-startfor') }) });
+            toast('Shift started for the employee.'); refreshTeam(); } catch (e) { toast(e.message); }
+        });
+      });
+      document.querySelectorAll('#teamBody [data-stop]').forEach(b => {
+        b.addEventListener('click', async () => {
+          try { await api('/time-tracking/admin/stop', { method: 'POST', body: JSON.stringify({ userId: b.getAttribute('data-stop'), entryId: b.getAttribute('data-entry') }) });
+            toast('Shift stopped.'); refreshTeam(); } catch (e) { toast(e.message); }
+        });
+      });
+      document.querySelectorAll('#teamBody [data-shots]').forEach(b => {
+        b.addEventListener('click', () => openScreenshots(b.getAttribute('data-shots'), b.getAttribute('data-name')));
+      });
+    } catch (e) { toast(e.message); }
+  }
+
+  function openShot(url) {
+    $('shotOverlayImg').src = url;
+    $('shotGrid').style.display = 'none';
+    $('shotOverlayImg').style.display = 'block';
+    $('shotOverlay').classList.add('on');
+  }
+
+  // Live screenshot wall for one employee, refreshed every 15s while open.
+  let shotViewerUser = null;
+  async function openScreenshots(userId, name) {
+    shotViewerUser = userId;
+    $('shotOverlayImg').style.display = 'none';
+    $('shotGrid').style.display = 'block';
+    $('shotGridTitle').textContent = 'Screenshots — ' + name;
+    $('shotOverlay').classList.add('on');
+    await loadShotGrid();
+    clearInterval(timers.shots);
+    timers.shots = setInterval(loadShotGrid, 15000);
+  }
+  async function loadShotGrid() {
+    if (!shotViewerUser) return;
+    try {
+      const shots = await api('/time-tracking/user/' + shotViewerUser + '/screenshots');
+      $('shotGridImgs').innerHTML = shots.length ? shots.map(s =>
+        '<div class="shot-cell"><img src="' + API + esc(s.path) + '" data-full="' + API + esc(s.path) + '" />'
+        + '<div class="shot-when">' + fmtClock(s.capturedAt) + '</div></div>'
+      ).join('') : '<span class="muted">No screenshots yet for this employee today.</span>';
+      document.querySelectorAll('#shotGridImgs img').forEach(img =>
+        img.addEventListener('click', () => openShot(img.getAttribute('data-full'))));
+    } catch (e) { $('shotGridImgs').innerHTML = '<span class="muted">' + esc(e.message) + '</span>'; }
+  }
+  $('shotOverlay').addEventListener('click', (e) => {
+    if (e.target.id === 'shotOverlay') { $('shotOverlay').classList.remove('on'); shotViewerUser = null; clearInterval(timers.shots); }
+  });
+
+  // ---------- Settings ----------
+  function fillSettings() {
+    fillServerInputs();
+    $('setShotInterval').value = settings.screenshotIntervalMinutes;
+    $('setAllowMonitoring').checked = !!settings.allowMonitoring;
+    $('setTheme').value = document.documentElement.getAttribute('data-theme') || 'dark';
+    $('setFont').value = localStorage.getItem('ppa_font') || "'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+    applyScale(localStorage.getItem('ppa_scale') || 100);
+  }
+  $('setTheme').addEventListener('change', () => applyTheme($('setTheme').value));
+  $('setFont').addEventListener('change', () => applyFont($('setFont').value));
+  $('setScale').addEventListener('input', () => applyScale($('setScale').value));
+  $('setBtnSaveMon').addEventListener('click', async () => {
+    try {
+      settings = await api('/time-tracking/settings', {
+        method: 'PUT',
+        body: JSON.stringify({
+          screenshotIntervalMinutes: Math.max(1, Math.min(60, Number($('setShotInterval').value) || 10)),
+          allowMonitoring: $('setAllowMonitoring').checked,
+        }),
+      });
+      $('shotIntervalLabel').textContent = settings.screenshotIntervalMinutes;
+      $('setMonMsg').textContent = 'Saved ✓';
+    } catch (e) { $('setMonMsg').textContent = e.message; }
+  });
+
+  // ---------- Activity feed ----------
+  const actIcon = { mention: '💬', dm: '🔒', meeting: '📅', role: '👤', shift: '⏱️' };
+  async function refreshActivityCount() {
+    if (!me) return;
+    try {
+      const d = await api('/activity');
+      const n = d.unread || 0;
+      const badge = $('activityCount');
+      badge.textContent = n > 9 ? '9+' : n;
+      badge.style.display = n > 0 ? 'flex' : 'none';
+    } catch {}
+  }
+  async function openActivity() {
+    try {
+      const d = await api('/activity');
+      $('activityList').innerHTML = (d.items && d.items.length) ? d.items.map(a =>
+        '<div class="act-item' + (a.read ? '' : ' unread') + '">'
+        + (actIcon[a.kind] || '•') + ' ' + esc(a.text)
+        + '<div class="when">' + fmtClock(new Date(a.at).toISOString()) + '</div></div>'
+      ).join('') : '<span class="muted">Nothing new.</span>';
+    } catch {}
+  }
+  $('btnActivityRead').addEventListener('click', async () => {
+    try { await api('/activity/read', { method: 'POST', body: '{}' }); await openActivity(); await refreshActivityCount(); } catch {}
+  });
+
+  // ---------- Role poll: react to role changes without relogin ----------
+  async function pollMe() {
+    if (!me) return;
+    try {
+      const u = await api('/users/me');
+      if (u && u.role !== me.role) { me = u; applyRoleUI(); toast('Your role is now ' + u.role + '.'); }
+    } catch {}
+  }
+
+  // ---------- Loops ----------
+  function startLoops() {
+    stopLoops();
+    timers.clock = setInterval(() => {
+      const ms = displayedMsToday();
+      $('clock').textContent = fmtHMS(ms);
+      $('statToday').textContent = fmtHM(ms);
+      $('dashTime').textContent = fmtHM(ms);
+      $('dashTimeSub').textContent = activeEntry ? 'Shift running' : 'No active shift';
+      $('trackBadgeTime').textContent = fmtHM(ms);
+    }, 1000);
+    timers.monitor = setInterval(monitorTick, 30000);
+    timers.summary = setInterval(refreshSummary, 60000);
+    timers.ping = setInterval(() => { api('/users/ping', { method: 'POST', body: '{}' }).catch(() => {}); }, 30000);
+    timers.chat = setInterval(() => { if (currentPage === 'chat') pollChat(false); }, 4000);
+    timers.meetings = setInterval(refreshMeetings, 30000);
+    timers.activity = setInterval(refreshActivityCount, 20000);
+    timers.me = setInterval(pollMe, 25000);
+    timers.lists = setInterval(() => {
+      if (currentPage === 'users' || currentPage === 'dashboard') refreshUsers();
+      if (currentPage === 'team') refreshTeam();
+    }, 30000);
+    refreshActivityCount();
+  }
+  function stopLoops() {
+    const keep = timers.toast;
+    Object.values(timers).forEach(clearInterval);
+    timers.toast = keep;
+  }
+
+  // ---------- Boot ----------
+  function hideSplash() { $('splash').classList.add('gone'); }
+  const splashVideo = $('splashVideo');
+  splashVideo?.addEventListener('ended', hideSplash);
+  splashVideo?.addEventListener('error', () => setTimeout(hideSplash, 300));
+  setTimeout(hideSplash, 6000); // safety net if autoplay is blocked
+  (async function boot() {
+    fillServerInputs();
+    const creds = savedCreds();
+    if (creds) { $('email').value = creds.email; $('password').value = creds.password; $('rememberMe').checked = true; }
+    if (token) {
+      try {
+        const user = await api('/users/me');
+        if (user) { await enterApp(user); return; }
+      } catch {}
+    }
+    if (creds && await tryAutoRelogin()) {
+      try {
+        const user = await api('/users/me');
+        if (user) { await enterApp(user); return; }
+      } catch {}
+    }
+    show('login');
+  })();
+</script>
+</body>
+</html>

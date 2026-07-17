@@ -1,6 +1,8 @@
 import { Controller, Get, Post, Delete, Body, Param, Request, UseGuards } from '@nestjs/common';
 import { MeetingsService } from './meetings.service';
 import { PresenceService } from '../users/presence.service';
+import { UsersService } from '../users/users.service';
+import { ActivityService } from '../activity/activity.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard';
 import { Role } from '../users/entities/role.enum';
@@ -11,6 +13,8 @@ export class MeetingsController {
   constructor(
     private readonly meetings: MeetingsService,
     private readonly presence: PresenceService,
+    private readonly usersService: UsersService,
+    private readonly activity: ActivityService,
   ) {}
 
   @Get()
@@ -22,7 +26,11 @@ export class MeetingsController {
   @Roles(Role.OWNER, Role.ADMIN)
   @Post()
   create(@Request() req: any, @Body() body: { title: string; startsAt: string; durationMinutes?: number; channel?: string }) {
-    return this.meetings.create(req.user, body);
+    const meeting = this.meetings.create(req.user, body);
+    const others = this.usersService.listPublic().filter((u) => u.id !== req.user.sub).map((u) => u.id);
+    const when = new Date(meeting.startsAt).toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+    this.activity.pushMany(others, 'meeting', `New meeting scheduled: ${meeting.title} — ${when}`);
+    return meeting;
   }
 
   @Roles(Role.OWNER, Role.ADMIN)

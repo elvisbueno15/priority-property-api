@@ -244,6 +244,18 @@ let TimeTrackingService = class TimeTrackingService {
             activityPercent: active ? active.activityPercent : null,
         };
     }
+    /** All screenshots for a user across today's entries, newest first. */
+    userScreenshots(userId, limit = 60) {
+        const out = [];
+        for (const entry of this.store.entries) {
+            if (entry.userId !== userId)
+                continue;
+            for (const s of this.store.screenshots[entry.id] || [])
+                out.push(s);
+        }
+        out.sort((a, b) => b.capturedAt.localeCompare(a.capturedAt));
+        return out.slice(0, limit);
+    }
     teamSummary(onlineIds) {
         const users = this.usersService.listPublic();
         return users.map((u) => {

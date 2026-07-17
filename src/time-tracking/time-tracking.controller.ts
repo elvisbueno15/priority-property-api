@@ -86,6 +86,25 @@ export class TimeTrackingController {
     return this.service.teamSummary(this.presence.onlineIds());
   }
 
+  // --- Owner/admin controls over another user's shift ---
+  @Roles(Role.OWNER, Role.ADMIN)
+  @Post('admin/start')
+  adminStart(@Body() body: { userId: string }) {
+    return this.service.startSession(body.userId, 'general');
+  }
+
+  @Roles(Role.OWNER, Role.ADMIN)
+  @Post('admin/stop')
+  adminStop(@Request() req: any, @Body() body: { entryId: string; userId: string }) {
+    return this.service.stopSession(body.entryId, body.userId, req.user.role);
+  }
+
+  @Roles(Role.OWNER, Role.ADMIN)
+  @Get('user/:userId/screenshots')
+  userScreenshots(@Param('userId') userId: string) {
+    return this.service.userScreenshots(userId);
+  }
+
   @Get('settings')
   settings(@Request() req: any) {
     return this.service.getSettings(req.user.sub);

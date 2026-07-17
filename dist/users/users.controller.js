@@ -16,14 +16,16 @@ exports.UsersController = void 0;
 const common_1 = require("@nestjs/common");
 const users_service_1 = require("./users.service");
 const presence_service_1 = require("./presence.service");
+const activity_service_1 = require("../activity/activity.service");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const roles_guard_1 = require("../auth/guards/roles.guard");
 const role_enum_1 = require("./entities/role.enum");
 const ASSIGNABLE_ROLES = [role_enum_1.Role.OWNER, role_enum_1.Role.ADMIN, role_enum_1.Role.EMPLOYEE];
 let UsersController = class UsersController {
-    constructor(usersService, presence) {
+    constructor(usersService, presence, activity) {
         this.usersService = usersService;
         this.presence = presence;
+        this.activity = activity;
     }
     me(req) {
         this.presence.touch(req.user.sub);
@@ -58,6 +60,7 @@ let UsersController = class UsersController {
             throw new common_1.ForbiddenException('owner_required');
         }
         const updated = await this.usersService.promote(id, body.role);
+        this.activity.push(id, 'role', `Your role was changed to ${updated.role}`);
         const { id: uid, email, name, role } = updated;
         return { id: uid, email, name, role };
     }
@@ -116,6 +119,7 @@ exports.UsersController = UsersController = __decorate([
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
     (0, common_1.Controller)('users'),
     __metadata("design:paramtypes", [users_service_1.UsersService,
-        presence_service_1.PresenceService])
+        presence_service_1.PresenceService,
+        activity_service_1.ActivityService])
 ], UsersController);
 //# sourceMappingURL=users.controller.js.map

@@ -16,20 +16,28 @@ exports.MeetingsController = void 0;
 const common_1 = require("@nestjs/common");
 const meetings_service_1 = require("./meetings.service");
 const presence_service_1 = require("../users/presence.service");
+const users_service_1 = require("../users/users.service");
+const activity_service_1 = require("../activity/activity.service");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const roles_guard_1 = require("../auth/guards/roles.guard");
 const role_enum_1 = require("../users/entities/role.enum");
 let MeetingsController = class MeetingsController {
-    constructor(meetings, presence) {
+    constructor(meetings, presence, usersService, activity) {
         this.meetings = meetings;
         this.presence = presence;
+        this.usersService = usersService;
+        this.activity = activity;
     }
     list(req) {
         this.presence.touch(req.user.sub);
         return this.meetings.listUpcoming();
     }
     create(req, body) {
-        return this.meetings.create(req.user, body);
+        const meeting = this.meetings.create(req.user, body);
+        const others = this.usersService.listPublic().filter((u) => u.id !== req.user.sub).map((u) => u.id);
+        const when = new Date(meeting.startsAt).toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+        this.activity.pushMany(others, 'meeting', `New meeting scheduled: ${meeting.title} — ${when}`);
+        return meeting;
     }
     remove(req, id) {
         return this.meetings.remove(id, req.user);
@@ -122,6 +130,8 @@ exports.MeetingsController = MeetingsController = __decorate([
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
     (0, common_1.Controller)('meetings'),
     __metadata("design:paramtypes", [meetings_service_1.MeetingsService,
-        presence_service_1.PresenceService])
+        presence_service_1.PresenceService,
+        users_service_1.UsersService,
+        activity_service_1.ActivityService])
 ], MeetingsController);
 //# sourceMappingURL=meetings.controller.js.map
