@@ -23,6 +23,18 @@ export class AuthController {
     return this.authService.login(dto);
   }
 
+  /** Step 1 of "forgot password": e-mail a reset code. */
+  @Post('forgot-password')
+  forgotPassword(@Body() dto: { email: string }) {
+    return this.authService.requestPasswordReset(dto.email || '');
+  }
+
+  /** Step 2: exchange the emailed code for a new password. */
+  @Post('reset-password')
+  resetPassword(@Body() dto: { email: string; code: string; newPassword: string }) {
+    return this.authService.resetPassword(dto.email || '', dto.code || '', dto.newPassword || '');
+  }
+
   /** Signed-in user changes their own password (e.g. after a temp reset). */
   @UseGuards(JwtAuthGuard)
   @Post('change-password')

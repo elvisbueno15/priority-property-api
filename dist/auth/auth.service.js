@@ -45,13 +45,19 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthService = void 0;
 const common_1 = require("@nestjs/common");
 const jwt_1 = require("@nestjs/jwt");
+const crypto_1 = require("crypto");
 const users_service_1 = require("../users/users.service");
+const email_1 = require("../email");
 const bcrypt = __importStar(require("bcryptjs"));
 const role_enum_1 = require("../users/entities/role.enum");
+const RESET_CODE_TTL_MS = 15 * 60 * 1000;
 let AuthService = class AuthService {
     constructor(usersService, jwtService) {
         this.usersService = usersService;
         this.jwtService = jwtService;
+        // email (lowercased) -> { code, expires }. In-memory on purpose: codes are
+        // short-lived, so a restart just means the user requests a fresh one.
+        this.resetCodes = new Map();
     }
     async register(dto) {
         const existing = this.usersService.findByEmail(dto.email);
@@ -76,6 +82,38 @@ let AuthService = class AuthService {
     }
     async promote(userId, role) {
         return this.usersService.promote(userId, role);
+    }
+    /**
+     * Start a "forgot password" flow: e-mail a 6-digit code to the address if it
+     * belongs to a real account. Always resolves the same way so callers can't
+     * probe which emails are registered.
+     */
+    async requestPasswordReset(email) {
+        const clean = (email || '').trim();
+        const user = this.usersService.findByEmail(clean);
+        if (user) {
+            const code = String((0, crypto_1.randomInt)(0, 1_000_000)).padStart(6, '0');
+            this.resetCodes.set(user.email.toLowerCase(), { code, expires: Date.now() + RESET_CODE_TTL_MS });
+            await (0, email_1.sendResetCodeEmail)(user.email, code);
+        }
+        return { ok: true };
+    }
+    /** Finish the flow: verify the code and set the new password. */
+    async resetPassword(email, code, newPassword) {
+        if (!newPassword || newPassword.length < 6) {
+            throw new common_1.BadRequestException('Password must be at least 6 characters.');
+        }
+        const key = (email || '').trim().toLowerCase();
+        const entry = this.resetCodes.get(key);
+        if (!entry || entry.expires < Date.now() || entry.code !== (code || '').trim()) {
+            throw new common_1.UnauthorizedException('Invalid or expired code.');
+        }
+        const user = this.usersService.findByEmail(email);
+        if (!user)
+            throw new common_1.UnauthorizedException('Invalid or expired code.');
+        await this.usersService.setPassword(user.id, newPassword);
+        this.resetCodes.delete(key);
+        return { ok: true };
     }
 };
 exports.AuthService = AuthService;

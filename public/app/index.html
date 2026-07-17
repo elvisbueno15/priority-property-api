@@ -383,9 +383,19 @@
     <span class="link" id="forgotPass">Forgot your password?</span>
     <span class="link" id="toggleServerBox">Server settings</span>
     <div id="forgotBox" style="display:none; margin-top:10px; font-size:12.5px; color:var(--muted); background:var(--pill-bg); border:1px solid var(--pill-border); border-radius:10px; padding:10px 12px; line-height:1.5;">
-      Ask the <b>owner</b> to reset your password: they open <b>Users → Reset password</b> on your
-      account and hand you a temporary one. Sign in with it, then set your own in
-      <b>Settings → Change password</b>.
+      <div id="fpStep1">
+        Enter your account email — we'll send you a 6-digit reset code.
+        <input id="fpEmail" type="email" placeholder="you@company.com" style="margin-top:8px;" />
+        <button class="chip blue" id="btnSendCode" style="width:100%; margin-top:8px;">Send code</button>
+      </div>
+      <div id="fpStep2" style="display:none;">
+        Enter the code we emailed to <b id="fpEmailShown"></b> and choose a new password.
+        <input id="fpCode" placeholder="6-digit code" inputmode="numeric" style="margin-top:8px;" />
+        <input id="fpNewPass" type="password" placeholder="New password (min 6 characters)" style="margin-top:8px;" />
+        <button class="chip blue" id="btnDoReset" style="width:100%; margin-top:8px;">Set new password</button>
+        <span class="link" id="fpBack" style="display:inline-block; margin-top:6px;">Use a different email</span>
+      </div>
+      <div class="okmsg" id="fpMsg" style="margin-top:6px;"></div>
     </div>
     <div id="serverBox" style="display:none; margin-top:10px;">
       <label>Server URL</label>
@@ -560,7 +570,10 @@
           <div class="chat-right">
             <div class="chat-head">
               <span id="chatTitle"># general</span>
-              <button class="chip danger" id="btnClearChat" style="display:none;">Clear chat</button>
+              <div style="display:flex; gap:8px; align-items:center;">
+                <button class="chip green" id="btnCall">📞 Call</button>
+                <button class="chip danger" id="btnClearChat" style="display:none;">Clear chat</button>
+              </div>
             </div>
             <div class="messages" id="chatMessages"></div>
             <div class="composer">
@@ -1067,8 +1080,53 @@
       });
       socket.on('activity', () => { refreshActivityCount(); });
       socket.on('meeting', () => { refreshMeetings(); });
+      socket.on('call', (p) => { onIncomingCall(p); });
     } catch {}
   }
+
+  // Someone started a call. Ring me if it targets me (DM) or a channel I'm in
+  // (channel calls target everyone). Ignore my own calls and already being in it.
+  function onIncomingCall(p) {
+    if (!p || !me || !p.meetingId) return;
+    if (p.byId === me.id) return;               // I'm the caller
+    if (p.toUserId && p.toUserId !== me.id) return;  // DM call for someone else
+    if (currentRoom === p.meetingId) return;    // already here
+    // The 'meeting' event will also refresh the list; suppress its duplicate
+    // "ready to join" notification for this same call — we ring here instead.
+    seenStart.add(p.meetingId); persistSeen();
+    const isDm = (p.channel || '').startsWith('dm:');
+    const label = isDm ? (p.byName + ' is calling you') : (p.byName + ' started a call in #' + p.channel);
+    const join = async () => { await refreshMeetings(); joinRoom(p.meetingId); };
+    notify('📞 Incoming call', label + ' — click to join', join);
+    toast('📞 ' + label);
+    callBanner(label, join);
+  }
+
+  // On-screen ring banner with Join / Dismiss (in case notifications are off).
+  let callBannerTimer = null;
+  function callBanner(label, onJoin) {
+    let el = $('callBanner');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'callBanner';
+      el.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:9999;'
+        + 'background:var(--blue);color:#fff;padding:12px 16px;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.35);'
+        + 'display:flex;gap:12px;align-items:center;font-weight:600;max-width:90vw;';
+      document.body.appendChild(el);
+    }
+    el.innerHTML = '<span>📞 ' + esc(label) + '</span>';
+    const join = document.createElement('button');
+    join.className = 'chip green'; join.textContent = 'Join';
+    join.onclick = () => { hideCallBanner(); onJoin(); };
+    const no = document.createElement('button');
+    no.className = 'chip'; no.textContent = 'Dismiss';
+    no.onclick = hideCallBanner;
+    el.appendChild(join); el.appendChild(no);
+    el.style.display = 'flex';
+    clearTimeout(callBannerTimer);
+    callBannerTimer = setTimeout(hideCallBanner, 30000);
+  }
+  function hideCallBanner() { const el = $('callBanner'); if (el) el.style.display = 'none'; clearTimeout(callBannerTimer); }
   $('btnLogout').addEventListener('click', () => logout());
 
   $('btnLogin').addEventListener('click', doLogin);
@@ -1093,6 +1151,46 @@
   $('forgotPass').addEventListener('click', () => {
     const b = $('forgotBox');
     b.style.display = b.style.display === 'none' ? 'block' : 'none';
+    if (b.style.display === 'block' && !$('fpEmail').value) $('fpEmail').value = $('email').value.trim();
+  });
+  $('btnSendCode').addEventListener('click', async () => {
+    const em = $('fpEmail').value.trim();
+    $('fpMsg').textContent = '';
+    if (!em) { $('fpMsg').textContent = 'Enter your email first.'; return; }
+    $('btnSendCode').disabled = true;
+    try {
+      await api('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email: em }) });
+      $('fpEmailShown').textContent = em;
+      $('fpStep1').style.display = 'none';
+      $('fpStep2').style.display = 'block';
+      $('fpMsg').textContent = 'If that email has an account, a code is on its way. Check your inbox.';
+    } catch (e) { $('fpMsg').textContent = e.message; }
+    finally { $('btnSendCode').disabled = false; }
+  });
+  $('fpBack').addEventListener('click', () => {
+    $('fpStep2').style.display = 'none';
+    $('fpStep1').style.display = 'block';
+    $('fpMsg').textContent = '';
+    $('fpCode').value = ''; $('fpNewPass').value = '';
+  });
+  $('btnDoReset').addEventListener('click', async () => {
+    $('fpMsg').textContent = '';
+    const code = $('fpCode').value.trim();
+    const np = $('fpNewPass').value;
+    if (!code || np.length < 6) { $('fpMsg').textContent = 'Enter the code and a password of at least 6 characters.'; return; }
+    $('btnDoReset').disabled = true;
+    try {
+      await api('/auth/reset-password', { method: 'POST', body: JSON.stringify({ email: $('fpEmailShown').textContent, code, newPassword: np }) });
+      $('email').value = $('fpEmailShown').textContent;
+      $('password').value = np;
+      $('forgotBox').style.display = 'none';
+      $('fpStep2').style.display = 'none'; $('fpStep1').style.display = 'block';
+      $('fpCode').value = ''; $('fpNewPass').value = '';
+      $('loginError').textContent = '';
+      toast('Password updated — signing you in…');
+      doLogin();
+    } catch (e) { $('fpMsg').textContent = e.message; }
+    finally { $('btnDoReset').disabled = false; }
   });
   $('switchLogin').addEventListener('click', () => show('login'));
   $('btnRegister').addEventListener('click', async () => {
@@ -1235,6 +1333,13 @@
     $('chatTitle').textContent = channelLabel(chatChannel);
     const isDm = chatChannel.startsWith('dm:');
     $('btnClearChat').style.display = (isDm || isAdminRole(me.role)) ? 'inline-block' : 'none';
+    if (isDm) {
+      const otherId = chatChannel.split(':').slice(1).find(id => id !== me.id);
+      const other = usersCache.find(u => u.id === otherId);
+      $('btnCall').textContent = '📞 Call ' + (other ? other.name.split(' ')[0] : '');
+    } else {
+      $('btnCall').textContent = '📞 Start call';
+    }
   }
 
   function renderChannels() {
@@ -1263,6 +1368,31 @@
       });
     });
     updateChatHeader();
+  }
+
+  $('btnCall').addEventListener('click', startCallHere);
+  async function startCallHere() {
+    if (!me) return;
+    const isDm = chatChannel.startsWith('dm:');
+    let title, toUserId = null;
+    if (isDm) {
+      toUserId = chatChannel.split(':').slice(1).find(id => id !== me.id);
+      const other = usersCache.find(u => u.id === toUserId);
+      title = 'Call with ' + (other ? other.name : 'teammate');
+    } else {
+      title = 'Call in #' + chatChannel;
+    }
+    $('btnCall').disabled = true;
+    try {
+      const meeting = await api('/meetings/call', {
+        method: 'POST',
+        body: JSON.stringify({ channel: chatChannel, title, toUserId }),
+      });
+      if (!meetingsCache.find(x => x.id === meeting.id)) meetingsCache.push(meeting);
+      await joinRoom(meeting.id);
+      toast(isDm ? 'Calling…' : 'Call started — your team is being notified.');
+    } catch (e) { toast(e.message); }
+    finally { $('btnCall').disabled = false; }
   }
 
   $('btnClearChat').addEventListener('click', async () => {
@@ -1399,7 +1529,7 @@
           notify('Meeting scheduled', m.title + ' — ' + fmtDay(m.startsAt) + ' at ' + fmtClock(m.startsAt), () => showPage('meetings'));
         }
       }
-      if (!seenStart.has(m.id) && now >= start - 10 * 60000 && now < end) {
+      if (!seenStart.has(m.id) && m.createdBy !== me.id && now >= start - 10 * 60000 && now < end) {
         seenStart.add(m.id);
         notify('Meeting ready to join', m.title + ' starts at ' + fmtClock(m.startsAt) + '. Click to join.', () => { showPage('meetings'); joinRoom(m.id); });
       }

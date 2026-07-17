@@ -36,6 +36,36 @@ export class MeetingsController {
     return meeting;
   }
 
+  /**
+   * Start an instant call (any role). Creates a "right now" meeting bound to a
+   * chat channel and rings the target: a single teammate for a DM call, or
+   * everyone else for a channel call.
+   */
+  @Post('call')
+  startCall(@Request() req: any, @Body() body: { channel?: string; title?: string; toUserId?: string }) {
+    const meeting = this.meetings.create(req.user, {
+      title: (body.title || 'Call').slice(0, 120),
+      startsAt: new Date().toISOString(),
+      durationMinutes: 60,
+      channel: body.channel || 'general',
+    });
+    const caller = this.usersService.findById(req.user.sub);
+    const callerName = caller ? caller.name : 'Someone';
+    const targets = body.toUserId
+      ? [body.toUserId]
+      : this.usersService.listPublic().filter((u) => u.id !== req.user.sub).map((u) => u.id);
+    this.activity.pushMany(targets, 'meeting', `📞 ${callerName} started a call: ${meeting.title}`);
+    this.events.emitAll('call', {
+      meetingId: meeting.id,
+      channel: meeting.channel,
+      byId: req.user.sub,
+      byName: callerName,
+      toUserId: body.toUserId || null,
+    });
+    this.events.emitAll('meeting', {});
+    return meeting;
+  }
+
   @Roles(Role.OWNER, Role.ADMIN)
   @Delete(':id')
   remove(@Request() req: any, @Param('id') id: string) {

@@ -42,6 +42,34 @@ let MeetingsController = class MeetingsController {
         this.events.emitAll('meeting', {});
         return meeting;
     }
+    /**
+     * Start an instant call (any role). Creates a "right now" meeting bound to a
+     * chat channel and rings the target: a single teammate for a DM call, or
+     * everyone else for a channel call.
+     */
+    startCall(req, body) {
+        const meeting = this.meetings.create(req.user, {
+            title: (body.title || 'Call').slice(0, 120),
+            startsAt: new Date().toISOString(),
+            durationMinutes: 60,
+            channel: body.channel || 'general',
+        });
+        const caller = this.usersService.findById(req.user.sub);
+        const callerName = caller ? caller.name : 'Someone';
+        const targets = body.toUserId
+            ? [body.toUserId]
+            : this.usersService.listPublic().filter((u) => u.id !== req.user.sub).map((u) => u.id);
+        this.activity.pushMany(targets, 'meeting', `📞 ${callerName} started a call: ${meeting.title}`);
+        this.events.emitAll('call', {
+            meetingId: meeting.id,
+            channel: meeting.channel,
+            byId: req.user.sub,
+            byName: callerName,
+            toUserId: body.toUserId || null,
+        });
+        this.events.emitAll('meeting', {});
+        return meeting;
+    }
     remove(req, id) {
         const out = this.meetings.remove(id, req.user);
         this.events.emitAll('meeting', {});
@@ -82,6 +110,14 @@ __decorate([
     __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", void 0)
 ], MeetingsController.prototype, "create", null);
+__decorate([
+    (0, common_1.Post)('call'),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", void 0)
+], MeetingsController.prototype, "startCall", null);
 __decorate([
     (0, roles_guard_1.Roles)(role_enum_1.Role.OWNER, role_enum_1.Role.ADMIN),
     (0, common_1.Delete)(':id'),

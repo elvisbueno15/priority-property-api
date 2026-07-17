@@ -31,6 +31,14 @@ let AuthController = class AuthController {
     login(dto) {
         return this.authService.login(dto);
     }
+    /** Step 1 of "forgot password": e-mail a reset code. */
+    forgotPassword(dto) {
+        return this.authService.requestPasswordReset(dto.email || '');
+    }
+    /** Step 2: exchange the emailed code for a new password. */
+    resetPassword(dto) {
+        return this.authService.resetPassword(dto.email || '', dto.code || '', dto.newPassword || '');
+    }
     /** Signed-in user changes their own password (e.g. after a temp reset). */
     async changePassword(req, dto) {
         if (!dto.newPassword || dto.newPassword.length < 6) {
@@ -61,6 +69,20 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", void 0)
 ], AuthController.prototype, "login", null);
+__decorate([
+    (0, common_1.Post)('forgot-password'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], AuthController.prototype, "forgotPassword", null);
+__decorate([
+    (0, common_1.Post)('reset-password'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], AuthController.prototype, "resetPassword", null);
 __decorate([
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, common_1.Post)('change-password'),
