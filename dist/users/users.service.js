@@ -114,6 +114,21 @@ let UsersService = class UsersService {
         this.users = this.users.filter(u => u.id !== userId);
         await this.save();
     }
+    async setPassword(userId, newPassword) {
+        const user = this.findById(userId);
+        if (!user)
+            throw new Error('User not found');
+        user.passwordHash = await bcrypt.hash(newPassword, 10);
+        user.updatedAt = new Date().toISOString();
+        await this.save();
+        return user;
+    }
+    async verifyPassword(userId, password) {
+        const user = this.findById(userId);
+        if (!user)
+            return false;
+        return bcrypt.compare(password, user.passwordHash);
+    }
     listPublic() {
         return this.users.map(({ id, email, name, role }) => ({ id, email, name, role }));
     }

@@ -18,13 +18,15 @@ const chat_service_1 = require("./chat.service");
 const presence_service_1 = require("../users/presence.service");
 const users_service_1 = require("../users/users.service");
 const activity_service_1 = require("../activity/activity.service");
+const events_service_1 = require("../events/events.service");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 let ChatController = class ChatController {
-    constructor(chat, presence, usersService, activity) {
+    constructor(chat, presence, usersService, activity, events) {
         this.chat = chat;
         this.presence = presence;
         this.usersService = usersService;
         this.activity = activity;
+        this.events = events;
     }
     channels() {
         return this.chat.channels();
@@ -43,6 +45,14 @@ let ChatController = class ChatController {
         const channel = body.channel || 'general';
         const msg = this.chat.post(req.user, name, channel, body.body);
         this.notify(req.user.sub, name, channel, msg.body);
+        // Realtime push so open chats refresh instantly (polling stays as fallback).
+        if ((0, chat_service_1.isDmChannel)(channel)) {
+            for (const id of (0, chat_service_1.dmParticipants)(channel))
+                this.events.emitToUser(id, 'chat', { channel });
+        }
+        else {
+            this.events.emitAll('chat', { channel });
+        }
         return msg;
     }
     /** Fan out activity: DM recipient, plus anyone @mentioned by name. */
@@ -104,6 +114,7 @@ exports.ChatController = ChatController = __decorate([
     __metadata("design:paramtypes", [chat_service_1.ChatService,
         presence_service_1.PresenceService,
         users_service_1.UsersService,
-        activity_service_1.ActivityService])
+        activity_service_1.ActivityService,
+        events_service_1.EventsService])
 ], ChatController);
 //# sourceMappingURL=chat.controller.js.map

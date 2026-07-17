@@ -62,6 +62,22 @@ export class UsersController {
     return { id: uid, email, name, role };
   }
 
+  /** Owner resets a teammate's password to a temporary one they hand over. */
+  @Roles(Role.OWNER)
+  @Post(':id/reset-password')
+  async resetPassword(@Request() req: any, @Param('id') id: string) {
+    const target = this.usersService.findById(id);
+    if (!target) throw new NotFoundException('user_not_found');
+    // Only an owner can reset another owner's password (self-reset allowed).
+    if (target.role === Role.OWNER && id !== req.user.sub && req.user.role !== Role.OWNER) {
+      throw new ForbiddenException('owner_required');
+    }
+    const temp = 'PPA-' + Math.random().toString(36).slice(2, 8);
+    await this.usersService.setPassword(id, temp);
+    this.activity.push(id, 'role', 'Your password was reset by the owner — ask them for the temporary one');
+    return { tempPassword: temp, email: target.email };
+  }
+
   @Roles(Role.OWNER)
   @Delete(':id')
   async removeUser(@Request() req: any, @Param('id') id: string) {

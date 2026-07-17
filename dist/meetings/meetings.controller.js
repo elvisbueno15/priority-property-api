@@ -18,15 +18,17 @@ const meetings_service_1 = require("./meetings.service");
 const presence_service_1 = require("../users/presence.service");
 const users_service_1 = require("../users/users.service");
 const activity_service_1 = require("../activity/activity.service");
+const events_service_1 = require("../events/events.service");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const roles_guard_1 = require("../auth/guards/roles.guard");
 const role_enum_1 = require("../users/entities/role.enum");
 let MeetingsController = class MeetingsController {
-    constructor(meetings, presence, usersService, activity) {
+    constructor(meetings, presence, usersService, activity, events) {
         this.meetings = meetings;
         this.presence = presence;
         this.usersService = usersService;
         this.activity = activity;
+        this.events = events;
     }
     list(req) {
         this.presence.touch(req.user.sub);
@@ -37,10 +39,13 @@ let MeetingsController = class MeetingsController {
         const others = this.usersService.listPublic().filter((u) => u.id !== req.user.sub).map((u) => u.id);
         const when = new Date(meeting.startsAt).toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' });
         this.activity.pushMany(others, 'meeting', `New meeting scheduled: ${meeting.title} — ${when}`);
+        this.events.emitAll('meeting', {});
         return meeting;
     }
     remove(req, id) {
-        return this.meetings.remove(id, req.user);
+        const out = this.meetings.remove(id, req.user);
+        this.events.emitAll('meeting', {});
+        return out;
     }
     ping(req, id) {
         this.presence.touch(req.user.sub);
@@ -132,6 +137,7 @@ exports.MeetingsController = MeetingsController = __decorate([
     __metadata("design:paramtypes", [meetings_service_1.MeetingsService,
         presence_service_1.PresenceService,
         users_service_1.UsersService,
-        activity_service_1.ActivityService])
+        activity_service_1.ActivityService,
+        events_service_1.EventsService])
 ], MeetingsController);
 //# sourceMappingURL=meetings.controller.js.map

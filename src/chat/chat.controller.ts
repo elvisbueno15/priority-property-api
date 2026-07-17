@@ -3,6 +3,7 @@ import { ChatService, isDmChannel, dmParticipants } from './chat.service';
 import { PresenceService } from '../users/presence.service';
 import { UsersService } from '../users/users.service';
 import { ActivityService } from '../activity/activity.service';
+import { EventsService } from '../events/events.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @UseGuards(JwtAuthGuard)
@@ -13,6 +14,7 @@ export class ChatController {
     private readonly presence: PresenceService,
     private readonly usersService: UsersService,
     private readonly activity: ActivityService,
+    private readonly events: EventsService,
   ) {}
 
   @Get('channels')
@@ -39,6 +41,12 @@ export class ChatController {
     const channel = body.channel || 'general';
     const msg = this.chat.post(req.user, name, channel, body.body);
     this.notify(req.user.sub, name, channel, msg.body);
+    // Realtime push so open chats refresh instantly (polling stays as fallback).
+    if (isDmChannel(channel)) {
+      for (const id of dmParticipants(channel)) this.events.emitToUser(id, 'chat', { channel });
+    } else {
+      this.events.emitAll('chat', { channel });
+    }
     return msg;
   }
 

@@ -10,6 +10,7 @@ exports.AppModule = void 0;
 const common_1 = require("@nestjs/common");
 const auth_module_1 = require("./auth/auth.module");
 const users_module_1 = require("./users/users.module");
+const events_module_1 = require("./events/events.module");
 const activity_module_1 = require("./activity/activity.module");
 const time_tracking_module_1 = require("./time-tracking/time-tracking.module");
 const chat_module_1 = require("./chat/chat.module");
@@ -21,7 +22,7 @@ let AppModule = class AppModule {
 exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
-        imports: [users_module_1.UsersModule, auth_module_1.AuthModule, activity_module_1.ActivityModule, time_tracking_module_1.TimeTrackingModule, chat_module_1.ChatModule, meetings_module_1.MeetingsModule, feedback_module_1.FeedbackModule],
+        imports: [events_module_1.EventsModule, users_module_1.UsersModule, auth_module_1.AuthModule, activity_module_1.ActivityModule, time_tracking_module_1.TimeTrackingModule, chat_module_1.ChatModule, meetings_module_1.MeetingsModule, feedback_module_1.FeedbackModule],
         controllers: [app_controller_1.AppController],
     })
 ], AppModule);

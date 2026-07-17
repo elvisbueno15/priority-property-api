@@ -112,6 +112,7 @@
   .topbar-l img{height:22px; width:auto;}
   .topbar-l .brand-inline .pri{font-size:14px;}
   .topbar-l .brand-inline .sec{font-size:11px; letter-spacing:1px;}
+  .topbar-l .muted{color:var(--muted); font-size:12px; margin-left:6px; font-weight:500;}
   .topbar-r{display:flex; align-items:center; gap:10px;}
   .track-badge{
     display:inline-flex; align-items:center; gap:7px; padding:5px 12px; border-radius:999px;
@@ -286,11 +287,35 @@
     display:flex; align-items:center; gap:8px; background:var(--surface);
     border:1px solid var(--rule-strong); border-radius:999px; padding:6px 12px; font-weight:700; font-size:13px;
   }
+  .video-grid{
+    display:grid; grid-template-columns:repeat(auto-fill, minmax(240px,1fr)); gap:10px; margin-top:12px;
+  }
+  .video-grid:empty{display:none;}
+  .video-tile{position:relative; background:#000; border-radius:10px; overflow:hidden; aspect-ratio:16/9;}
+  .video-tile video{width:100%; height:100%; object-fit:contain; display:block; background:#000;}
+  .video-tile .vlabel{
+    position:absolute; left:8px; bottom:8px; background:rgba(0,0,0,.6); color:#fff;
+    font-size:11px; font-weight:700; padding:3px 8px; border-radius:6px;
+  }
   .form-grid{display:grid; grid-template-columns:2fr 1fr 1fr 1fr 1fr auto; gap:10px; align-items:end;}
 
   .settings-box{max-width:520px;}
   .settings-box .row2{display:flex; gap:10px; align-items:center; margin-top:10px;}
 
+  .modal-overlay{
+    display:none; position:fixed; inset:0; z-index:998; background:rgba(0,0,0,.6);
+    align-items:center; justify-content:center;
+  }
+  .modal-overlay.on{display:flex;}
+  .modal-box{
+    background:var(--surface); border:1px solid var(--rule-strong); border-radius:14px;
+    padding:22px; width:380px; box-shadow:0 20px 60px rgba(0,0,0,.4);
+  }
+  .temp-pass{
+    font-family:Consolas, monospace; font-size:22px; font-weight:800; letter-spacing:1px;
+    background:var(--pill-bg); border:1px solid var(--pill-border); color:var(--blue);
+    border-radius:10px; padding:12px; text-align:center; user-select:all;
+  }
   #shotOverlay{
     display:none; position:fixed; inset:0; z-index:999; background:rgba(0,0,0,.75);
     align-items:center; justify-content:center; cursor:pointer;
@@ -355,7 +380,13 @@
     <div class="error" id="loginError"></div>
     <button class="primary" id="btnLogin">Sign in</button>
     <span class="link" id="switchRegister">Create an account</span>
+    <span class="link" id="forgotPass">Forgot your password?</span>
     <span class="link" id="toggleServerBox">Server settings</span>
+    <div id="forgotBox" style="display:none; margin-top:10px; font-size:12.5px; color:var(--muted); background:var(--pill-bg); border:1px solid var(--pill-border); border-radius:10px; padding:10px 12px; line-height:1.5;">
+      Ask the <b>owner</b> to reset your password: they open <b>Users → Reset password</b> on your
+      account and hand you a temporary one. Sign in with it, then set your own in
+      <b>Settings → Change password</b>.
+    </div>
     <div id="serverBox" style="display:none; margin-top:10px;">
       <label>Server URL</label>
       <input id="serverUrl" placeholder="http://192.168.1.50:3001" />
@@ -409,6 +440,7 @@
           </div>
           <button class="menu-item" data-go="settings">⚙️ Settings</button>
           <button class="menu-item" data-go="help">💬 Support &amp; feedback</button>
+          <button class="menu-item" id="menuUpdate">🔄 Check for updates</button>
           <button class="menu-item" id="menuTheme">🌓 Switch theme</button>
           <div class="menu-sep"></div>
           <button class="menu-item danger" id="btnLogout">↩ Sign out</button>
@@ -544,12 +576,15 @@
         <h2 class="page-title">Meetings</h2>
 
         <div class="card room-card" id="roomCard" style="display:none; margin-bottom:14px;">
-          <h4>Voice channel — live</h4>
+          <h4>Meeting room — live</h4>
           <div class="title" style="font-weight:800; font-size:16px;" id="roomTitle">—</div>
-          <div class="sub" id="roomHint">Live voice call — everyone in the room can hear each other.</div>
+          <div class="sub" id="roomHint">Live call — voice, camera and screen sharing.</div>
           <div class="participants" id="roomParticipants"></div>
-          <div style="margin-top:12px; display:flex; gap:8px; align-items:center;">
+          <div class="video-grid" id="videoGrid"></div>
+          <div style="margin-top:12px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
             <button class="chip" id="btnMute">🎤 Mute</button>
+            <button class="chip" id="btnCamera">🎥 Camera</button>
+            <button class="chip" id="btnShare">🖥️ Share screen</button>
             <button class="chip danger" id="btnLeaveRoom">Leave room</button>
             <span class="muted" id="voiceStatus"></span>
           </div>
@@ -665,6 +700,24 @@
           <input id="setScale" type="range" min="80" max="140" step="5" style="width:100%;" />
           <div class="sub">Make everything bigger or smaller for easier reading. Applies instantly.</div>
         </div>
+        <div class="card settings-box" style="margin-top:14px;">
+          <h4>Updates</h4>
+          <div class="sub" id="versionInfo" style="margin-bottom:10px;">Version —</div>
+          <button class="chip blue" id="btnUpdate">🔄 Check for updates &amp; restart</button>
+          <div class="sub" style="margin-top:8px;">
+            Updates arrive automatically from the team server — this restarts the app and loads
+            the newest version instantly, no reinstall needed.
+          </div>
+        </div>
+        <div class="card settings-box" style="margin-top:14px;">
+          <h4>Change password</h4>
+          <label style="margin-top:8px;">Current password</label>
+          <input id="cpCurrent" type="password" autocomplete="current-password" />
+          <label style="margin-top:10px;">New password (min 6 characters)</label>
+          <input id="cpNew" type="password" autocomplete="new-password" />
+          <button class="chip blue" id="btnChangePass" style="margin-top:10px;">Change password</button>
+          <div class="okmsg" id="cpMsg"></div>
+        </div>
         <div class="card settings-box" id="cardEmpNote" style="display:none; margin-top:14px;">
           <h4>Administered settings</h4>
           <div class="sub">Server and monitoring settings are managed by your administrator.</div>
@@ -702,6 +755,18 @@
   <div id="shotGrid" style="display:none;">
     <div class="shot-grid-head" id="shotGridTitle">Screenshots</div>
     <div class="shot-grid-imgs" id="shotGridImgs"></div>
+  </div>
+</div>
+<div id="tempPassOverlay" class="modal-overlay">
+  <div class="modal-box">
+    <h4 style="margin:0 0 8px; color:var(--ink);">Temporary password</h4>
+    <div class="sub" style="margin-bottom:10px;">For <b id="tempPassUser">—</b>. Hand it over privately —
+    they should change it right away in <b>Settings → Change password</b>.</div>
+    <div class="temp-pass" id="tempPassValue">—</div>
+    <div style="display:flex; gap:8px; margin-top:12px;">
+      <button class="chip blue" id="tempPassCopy">Copy</button>
+      <button class="chip" id="tempPassClose">Close</button>
+    </div>
   </div>
 </div>
 <div id="toast"></div>
@@ -905,8 +970,11 @@
   function savedCreds() {
     try { return JSON.parse(atob(localStorage.getItem('ppa_saved') || '')); } catch { return null; }
   }
+  function storeCredsRaw(email, password) {
+    localStorage.setItem('ppa_saved', btoa(JSON.stringify({ email, password })));
+  }
   function storeCreds(email, password) {
-    if ($('rememberMe').checked) localStorage.setItem('ppa_saved', btoa(JSON.stringify({ email, password })));
+    if ($('rememberMe').checked) storeCredsRaw(email, password);
     else localStorage.removeItem('ppa_saved');
   }
   async function tryAutoRelogin() {
@@ -960,6 +1028,7 @@
     setTrackingUI();
     await refreshSummary();
     startLoops();
+    connectSocket();
     refreshUsers();
     refreshMeetings();
   }
@@ -967,12 +1036,38 @@
   function logout(msg) {
     stopLoops();
     if (currentRoom) leaveRoom();
+    try { socket?.disconnect(); } catch {}
+    socket = null;
     chatChannel = 'general'; usersCache = [];
     $('chatMessages').innerHTML = '';
     token = null; me = null; activeEntry = null; lastMsgId = null; meetingsPrimed = false;
     localStorage.removeItem('ppa_token');
     show('login');
     if (msg) $('loginError').textContent = msg;
+  }
+
+  // ---------- Realtime (Socket.io) — instant chat/activity/meetings.
+  // If websockets can't get through, the REST polling loops keep working.
+  let socket = null;
+  function connectSocket() {
+    if (!token) return;
+    if (window.io) { initSocket(); return; }
+    const s = document.createElement('script');
+    s.src = API + '/socket.io/socket.io.js';
+    s.onload = initSocket;
+    s.onerror = () => {};   // no socket script → polling fallback
+    document.head.appendChild(s);
+  }
+  function initSocket() {
+    try {
+      socket?.disconnect();
+      socket = window.io(API, { auth: { token }, transports: ['websocket', 'polling'] });
+      socket.on('chat', (p) => {
+        if (currentPage === 'chat' && p && p.channel === chatChannel) pollChat(false);
+      });
+      socket.on('activity', () => { refreshActivityCount(); });
+      socket.on('meeting', () => { refreshMeetings(); });
+    } catch {}
   }
   $('btnLogout').addEventListener('click', () => logout());
 
@@ -995,6 +1090,10 @@
   }
 
   $('switchRegister').addEventListener('click', () => { $('regError').textContent = ''; show('register'); });
+  $('forgotPass').addEventListener('click', () => {
+    const b = $('forgotBox');
+    b.style.display = b.style.display === 'none' ? 'block' : 'none';
+  });
   $('switchLogin').addEventListener('click', () => show('login'));
   $('btnRegister').addEventListener('click', async () => {
     $('regError').textContent = '';
@@ -1347,7 +1446,17 @@
     { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
     { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
   ];
-  const rtc = { pcs: new Map(), names: new Map(), localStream: null, muted: false, listener: false };
+  const rtc = {
+    peers: new Map(),        // userId -> { pc, makingOffer, ignoreOffer, polite }
+    names: new Map(),
+    localStream: null,       // mic
+    camStream: null,         // camera
+    screenStream: null,      // screen share
+    camSenders: new Map(),   // userId -> RTCRtpSender
+    screenSenders: new Map(),
+    muted: false,
+    listener: false,
+  };
 
   async function startMic() {
     try {
@@ -1363,79 +1472,114 @@
     }
   }
 
-  function ensurePeer(userId, name, initiator) {
-    if (rtc.pcs.has(userId)) return rtc.pcs.get(userId);
+  function sendSignal(to, type, data) {
+    if (!currentRoom) return;
+    api('/meetings/' + currentRoom + '/signal', {
+      method: 'POST',
+      body: JSON.stringify({ to, type, data }),
+    }).catch(() => {});
+  }
+
+  function addVideoTile(id, stream, label, isLocal) {
+    let tile = document.getElementById(id);
+    if (!tile) {
+      tile = document.createElement('div');
+      tile.className = 'video-tile';
+      tile.id = id;
+      const v = document.createElement('video');
+      v.autoplay = true; v.playsInline = true;
+      if (isLocal) v.muted = true;
+      const l = document.createElement('div');
+      l.className = 'vlabel';
+      tile.appendChild(v); tile.appendChild(l);
+      $('videoGrid').appendChild(tile);
+    }
+    tile.querySelector('video').srcObject = stream;
+    tile.querySelector('.vlabel').textContent = label;
+  }
+  function removeTile(id) { document.getElementById(id)?.remove(); }
+
+  function ensurePeer(userId, name) {
+    if (rtc.peers.has(userId)) return rtc.peers.get(userId);
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-    rtc.pcs.set(userId, pc);
+    // "Perfect negotiation": the peer with the LARGER id politely yields on
+    // offer collisions, so either side can renegotiate (camera/screen) safely.
+    const peer = { pc, makingOffer: false, ignoreOffer: false, polite: me.id > userId };
+    rtc.peers.set(userId, peer);
     rtc.names.set(userId, name);
+
     if (rtc.localStream) {
       rtc.localStream.getTracks().forEach(t => { t.enabled = !rtc.muted; pc.addTrack(t, rtc.localStream); });
     } else {
       pc.addTransceiver('audio', { direction: 'recvonly' });
     }
-    pc.onicecandidate = (e) => {
-      if (e.candidate && currentRoom) {
-        api('/meetings/' + currentRoom + '/signal', {
-          method: 'POST',
-          body: JSON.stringify({ to: userId, type: 'ice', data: e.candidate }),
-        }).catch(() => {});
-      }
+    if (rtc.camStream) rtc.camSenders.set(userId, pc.addTrack(rtc.camStream.getVideoTracks()[0], rtc.camStream));
+    if (rtc.screenStream) rtc.screenSenders.set(userId, pc.addTrack(rtc.screenStream.getVideoTracks()[0], rtc.screenStream));
+
+    pc.onnegotiationneeded = async () => {
+      try {
+        peer.makingOffer = true;
+        await pc.setLocalDescription();
+        sendSignal(userId, 'offer', pc.localDescription);
+      } catch {} finally { peer.makingOffer = false; }
     };
+    pc.onicecandidate = (e) => { if (e.candidate) sendSignal(userId, 'ice', e.candidate); };
     pc.ontrack = (e) => {
-      let el = document.getElementById('audio-' + userId);
-      if (!el) {
-        el = document.createElement('audio');
-        el.id = 'audio-' + userId;
-        el.autoplay = true;
-        $('remoteAudios').appendChild(el);
+      const track = e.track;
+      if (track.kind === 'audio') {
+        let el = document.getElementById('audio-' + userId);
+        if (!el) {
+          el = document.createElement('audio');
+          el.id = 'audio-' + userId;
+          el.autoplay = true;
+          $('remoteAudios').appendChild(el);
+        }
+        el.srcObject = new MediaStream([track]);
+      } else {
+        const tileId = 'vt-' + userId + '-' + track.id;
+        const show = () => addVideoTile(tileId, new MediaStream([track]), rtc.names.get(userId) || 'Teammate', false);
+        show();
+        track.onended = () => removeTile(tileId);
+        track.onmute = () => removeTile(tileId);
+        track.onunmute = show;
       }
-      el.srcObject = e.streams[0];
     };
     pc.onconnectionstatechange = () => {
       if (['failed', 'closed'].includes(pc.connectionState)) dropPeer(userId);
       renderRoomRoster();
     };
-    if (initiator) {
-      (async () => {
-        try {
-          const offer = await pc.createOffer();
-          await pc.setLocalDescription(offer);
-          await api('/meetings/' + currentRoom + '/signal', {
-            method: 'POST',
-            body: JSON.stringify({ to: userId, type: 'offer', data: pc.localDescription }),
-          });
-        } catch {}
-      })();
-    }
-    return pc;
+    return peer;
   }
 
   function dropPeer(userId) {
-    const pc = rtc.pcs.get(userId);
-    if (pc) { try { pc.close(); } catch {} }
-    rtc.pcs.delete(userId);
+    const peer = rtc.peers.get(userId);
+    if (peer) { try { peer.pc.close(); } catch {} }
+    rtc.peers.delete(userId);
+    rtc.camSenders.delete(userId);
+    rtc.screenSenders.delete(userId);
     document.getElementById('audio-' + userId)?.remove();
+    document.querySelectorAll('[id^="vt-' + userId + '-"]').forEach(t => t.remove());
   }
 
   async function handleSignal(s) {
     if (!currentRoom) return;
     try {
-      // On an incoming offer we are always the callee for that pair.
-      const pc = ensurePeer(s.from, s.fromName, false);
+      const peer = ensurePeer(s.from, s.fromName);
+      const pc = peer.pc;
       if (s.type === 'offer') {
+        const collision = peer.makingOffer || pc.signalingState !== 'stable';
+        peer.ignoreOffer = !peer.polite && collision;
+        if (peer.ignoreOffer) return;
         await pc.setRemoteDescription(new RTCSessionDescription(s.data));
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-        await api('/meetings/' + currentRoom + '/signal', {
-          method: 'POST',
-          body: JSON.stringify({ to: s.from, type: 'answer', data: pc.localDescription }),
-        });
+        await pc.setLocalDescription();
+        sendSignal(s.from, 'answer', pc.localDescription);
       } else if (s.type === 'answer') {
         if (pc.signalingState === 'have-local-offer') {
           await pc.setRemoteDescription(new RTCSessionDescription(s.data));
         }
       } else if (s.type === 'ice') {
-        try { await pc.addIceCandidate(new RTCIceCandidate(s.data)); } catch {}
+        try { await pc.addIceCandidate(new RTCIceCandidate(s.data)); }
+        catch (e) { if (!peer.ignoreOffer) throw e; }
       }
     } catch {}
   }
@@ -1455,8 +1599,8 @@
         return '<div class="participant"><div class="dot on"></div>' + esc(p.name) + ' (you)'
           + (rtc.muted ? ' 🔇' : '') + '</div>';
       }
-      const pc = rtc.pcs.get(p.id);
-      const st = pc ? pc.connectionState : 'connecting';
+      const peer = rtc.peers.get(p.id);
+      const st = peer ? peer.pc.connectionState : 'connecting';
       const dot = st === 'connected' ? 'on' : 'idle';
       const label = st === 'connected' ? '' : ' <span class="muted">(connecting...)</span>';
       return '<div class="participant"><div class="dot ' + dot + '"></div>' + esc(p.name)
@@ -1469,14 +1613,15 @@
     try {
       const r = await api('/meetings/' + currentRoom + '/ping', { method: 'POST', body: '{}' });
       lastRoster = r.participants;
-      // Mesh reconciliation: deterministic initiator (lower id calls higher id)
+      // Mesh reconciliation: the smaller id opens the connection first; the
+      // other side creates its peer when the offer arrives.
       for (const p of r.participants) {
         if (p.id === me.id) continue;
-        if (!rtc.pcs.has(p.id) && me.id < p.id) ensurePeer(p.id, p.name, true);
+        if (!rtc.peers.has(p.id) && me.id < p.id) ensurePeer(p.id, p.name);
       }
       // Drop peers who left the room
       const present = new Set(r.participants.map(p => p.id));
-      for (const userId of [...rtc.pcs.keys()]) {
+      for (const userId of [...rtc.peers.keys()]) {
         if (!present.has(userId)) dropPeer(userId);
       }
       renderRoomRoster();
@@ -1503,11 +1648,14 @@
   async function leaveRoom() {
     clearInterval(timers.room);
     clearInterval(timers.signals);
-    for (const userId of [...rtc.pcs.keys()]) dropPeer(userId);
+    stopCamera();
+    stopScreenShare();
+    for (const userId of [...rtc.peers.keys()]) dropPeer(userId);
     if (rtc.localStream) { rtc.localStream.getTracks().forEach(t => t.stop()); rtc.localStream = null; }
     rtc.muted = false;
     $('btnMute').textContent = '🎤 Mute';
     $('voiceStatus').textContent = '';
+    $('videoGrid').innerHTML = '';
     if (currentRoom) { try { await api('/meetings/' + currentRoom + '/leave', { method: 'POST', body: '{}' }); } catch {} }
     currentRoom = null;
     $('roomCard').style.display = 'none';
@@ -1520,6 +1668,58 @@
     if (rtc.localStream) rtc.localStream.getTracks().forEach(t => { t.enabled = !rtc.muted; });
     $('btnMute').textContent = rtc.muted ? '🔇 Unmute' : '🎤 Mute';
     renderRoomRoster();
+  });
+
+  // ---------- Camera ----------
+  function stopCamera() {
+    if (!rtc.camStream) return;
+    rtc.camStream.getTracks().forEach(t => t.stop());
+    rtc.camStream = null;
+    for (const [uid, sender] of rtc.camSenders) {
+      try { rtc.peers.get(uid)?.pc.removeTrack(sender); } catch {}
+    }
+    rtc.camSenders.clear();
+    removeTile('vt-local-cam');
+    $('btnCamera').textContent = '🎥 Camera';
+  }
+  $('btnCamera').addEventListener('click', async () => {
+    if (rtc.camStream) { stopCamera(); return; }
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { width: 960, height: 540 } });
+    } catch { toast('No camera available.'); return; }
+    rtc.camStream = stream;
+    const track = stream.getVideoTracks()[0];
+    track.onended = stopCamera;
+    addVideoTile('vt-local-cam', stream, 'You (camera)', true);
+    for (const [uid, peer] of rtc.peers) rtc.camSenders.set(uid, peer.pc.addTrack(track, stream));
+    $('btnCamera').textContent = '🎥 Stop camera';
+  });
+
+  // ---------- Screen share ----------
+  function stopScreenShare() {
+    if (!rtc.screenStream) return;
+    rtc.screenStream.getTracks().forEach(t => t.stop());
+    rtc.screenStream = null;
+    for (const [uid, sender] of rtc.screenSenders) {
+      try { rtc.peers.get(uid)?.pc.removeTrack(sender); } catch {}
+    }
+    rtc.screenSenders.clear();
+    removeTile('vt-local-screen');
+    $('btnShare').textContent = '🖥️ Share screen';
+  }
+  $('btnShare').addEventListener('click', async () => {
+    if (rtc.screenStream) { stopScreenShare(); return; }
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+    } catch { toast('Screen sharing was cancelled or is unavailable.'); return; }
+    rtc.screenStream = stream;
+    const track = stream.getVideoTracks()[0];
+    track.onended = stopScreenShare;   // user stops from the OS/browser bar
+    addVideoTile('vt-local-screen', stream, 'You (screen)', true);
+    for (const [uid, peer] of rtc.peers) rtc.screenSenders.set(uid, peer.pc.addTrack(track, stream));
+    $('btnShare').textContent = '🖥️ Stop sharing';
   });
 
   // ---------- Users / Team ----------
@@ -1552,10 +1752,12 @@
                 '<option value="' + r + '"' + (u.role === r ? ' selected' : '') + '>' + r + '</option>').join('')
             + '</select>';
         }
-        const canDelete = me.role === 'owner' && u.id !== me.id;
-        actions = canDelete
-          ? '<button class="chip danger" data-del-user="' + u.id + '" data-name="' + esc(u.name) + '">Remove</button>'
-          : '<span class="muted">—</span>';
+        const isOwnerMe = me.role === 'owner';
+        const canReset = isOwnerMe;   // owner can reset anyone's password (incl. their own)
+        const canDelete = isOwnerMe && u.id !== me.id;
+        actions = (canReset ? '<button class="chip" data-reset-pass="' + u.id + '" data-name="' + esc(u.name) + '">Reset password</button> ' : '')
+          + (canDelete ? '<button class="chip danger" data-del-user="' + u.id + '" data-name="' + esc(u.name) + '">Remove</button>' : '');
+        if (!actions) actions = '<span class="muted">—</span>';
       }
       return '<tr><td>' + esc(u.name) + (u.id === me.id ? ' <span class="muted">(you)</span>' : '') + '</td>'
         + '<td>' + esc(u.email) + '</td><td>' + roleCell + '</td><td>' + status + '</td>'
@@ -1586,7 +1788,23 @@
         } catch (e) { toast(e.message); }
       });
     });
+    document.querySelectorAll('#usersTable [data-reset-pass]').forEach(b => {
+      b.addEventListener('click', async () => {
+        const name = b.getAttribute('data-name');
+        if (!confirm('Reset ' + name + "'s password? Their current one stops working immediately.")) return;
+        try {
+          const r = await api('/users/' + b.getAttribute('data-reset-pass') + '/reset-password', { method: 'POST', body: '{}' });
+          $('tempPassUser').textContent = name + ' (' + r.email + ')';
+          $('tempPassValue').textContent = r.tempPassword;
+          $('tempPassOverlay').classList.add('on');
+        } catch (e) { toast(e.message); }
+      });
+    });
   }
+  $('tempPassCopy').addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText($('tempPassValue').textContent); toast('Copied.'); } catch {}
+  });
+  $('tempPassClose').addEventListener('click', () => $('tempPassOverlay').classList.remove('on'));
 
   // ---------- Feedback ----------
   $('btnSendFb').addEventListener('click', async () => {
@@ -1711,10 +1929,47 @@
     $('setTheme').value = document.documentElement.getAttribute('data-theme') || 'dark';
     $('setFont').value = localStorage.getItem('ppa_font') || "'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
     applyScale(localStorage.getItem('ppa_scale') || 100);
+    fillVersionInfo();
   }
   $('setTheme').addEventListener('change', () => applyTheme($('setTheme').value));
   $('setFont').addEventListener('change', () => applyFont($('setFont').value));
   $('setScale').addEventListener('input', () => applyScale($('setScale').value));
+
+  // ---------- Updates (Discord-style: UI comes from the server) ----------
+  const UI_VERSION = '0.4.0';
+  async function fillVersionInfo() {
+    let txt = 'App v' + UI_VERSION;
+    try { const v = await api('/version'); txt += ' · Server v' + v.version; } catch {}
+    if (IS_DESKTOP && window.ppa.getShellVersion) {
+      try { txt += ' · Shell v' + (await window.ppa.getShellVersion()); } catch {}
+    }
+    $('versionInfo').textContent = txt;
+  }
+  function checkForUpdates() {
+    toast('Restarting with the latest version...');
+    setTimeout(() => {
+      if (IS_DESKTOP && window.ppa.reloadLatest) window.ppa.reloadLatest();
+      else window.location.reload();
+    }, 600);
+  }
+  $('btnUpdate').addEventListener('click', checkForUpdates);
+  $('menuUpdate').addEventListener('click', checkForUpdates);
+
+  // ---------- Change my password ----------
+  $('btnChangePass').addEventListener('click', async () => {
+    $('cpMsg').textContent = '';
+    try {
+      await api('/auth/change-password', {
+        method: 'POST',
+        body: JSON.stringify({ currentPassword: $('cpCurrent').value, newPassword: $('cpNew').value }),
+      });
+      // Keep the remembered login in sync so auto-relogin keeps working.
+      if (localStorage.getItem('ppa_saved')) storeCredsRaw(me.email, $('cpNew').value);
+      $('cpCurrent').value = ''; $('cpNew').value = '';
+      $('cpMsg').textContent = 'Password changed ✓';
+    } catch (e) { $('cpMsg').textContent = e.message; }
+  });
+
   $('setBtnSaveMon').addEventListener('click', async () => {
     try {
       settings = await api('/time-tracking/settings', {
@@ -1729,6 +1984,7 @@
     } catch (e) { $('setMonMsg').textContent = e.message; }
   });
 
+  // ---------- Loops ----------
   // ---------- Activity feed ----------
   const actIcon = { mention: '💬', dm: '🔒', meeting: '📅', role: '👤', shift: '⏱️' };
   async function refreshActivityCount() {

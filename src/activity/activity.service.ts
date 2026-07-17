@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { nanoid } from 'nanoid';
+import { EventsService } from '../events/events.service';
 
 export interface ActivityItem {
   id: string;
@@ -21,11 +22,14 @@ const TTL_MS = 7 * 24 * 60 * 60 * 1000;
 export class ActivityService {
   private byUser = new Map<string, ActivityItem[]>();
 
+  constructor(private readonly events: EventsService) {}
+
   push(userId: string, kind: string, text: string) {
     if (!userId) return;
     const list = this.byUser.get(userId) || [];
     list.push({ id: nanoid(8), userId, kind, text, at: Date.now(), read: false });
     this.byUser.set(userId, list.slice(-MAX_PER_USER));
+    this.events.emitToUser(userId, 'activity', { kind });
   }
 
   pushMany(userIds: string[], kind: string, text: string) {

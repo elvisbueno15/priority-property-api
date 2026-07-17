@@ -3,6 +3,7 @@ import { MeetingsService } from './meetings.service';
 import { PresenceService } from '../users/presence.service';
 import { UsersService } from '../users/users.service';
 import { ActivityService } from '../activity/activity.service';
+import { EventsService } from '../events/events.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard';
 import { Role } from '../users/entities/role.enum';
@@ -15,6 +16,7 @@ export class MeetingsController {
     private readonly presence: PresenceService,
     private readonly usersService: UsersService,
     private readonly activity: ActivityService,
+    private readonly events: EventsService,
   ) {}
 
   @Get()
@@ -30,13 +32,16 @@ export class MeetingsController {
     const others = this.usersService.listPublic().filter((u) => u.id !== req.user.sub).map((u) => u.id);
     const when = new Date(meeting.startsAt).toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' });
     this.activity.pushMany(others, 'meeting', `New meeting scheduled: ${meeting.title} — ${when}`);
+    this.events.emitAll('meeting', {});
     return meeting;
   }
 
   @Roles(Role.OWNER, Role.ADMIN)
   @Delete(':id')
   remove(@Request() req: any, @Param('id') id: string) {
-    return this.meetings.remove(id, req.user);
+    const out = this.meetings.remove(id, req.user);
+    this.events.emitAll('meeting', {});
+    return out;
   }
 
   @Post(':id/ping')

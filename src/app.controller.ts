@@ -1,13 +1,16 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
-import { UsersService } from './users/users.service';
-import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
+import { Controller, Get } from '@nestjs/common';
+
+export const APP_VERSION = '0.4.0';
 
 @Controller()
 export class AppController {
-  constructor(private readonly usersService: UsersService) {}
-
   @Get('health')
   health() {
     return { status: 'ok', now: new Date().toISOString() };
+  }
+
+  @Get('version')
+  version() {
+    return { version: APP_VERSION };
   }
 }

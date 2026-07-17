@@ -64,6 +64,20 @@ let UsersController = class UsersController {
         const { id: uid, email, name, role } = updated;
         return { id: uid, email, name, role };
     }
+    /** Owner resets a teammate's password to a temporary one they hand over. */
+    async resetPassword(req, id) {
+        const target = this.usersService.findById(id);
+        if (!target)
+            throw new common_1.NotFoundException('user_not_found');
+        // Only an owner can reset another owner's password (self-reset allowed).
+        if (target.role === role_enum_1.Role.OWNER && id !== req.user.sub && req.user.role !== role_enum_1.Role.OWNER) {
+            throw new common_1.ForbiddenException('owner_required');
+        }
+        const temp = 'PPA-' + Math.random().toString(36).slice(2, 8);
+        await this.usersService.setPassword(id, temp);
+        this.activity.push(id, 'role', 'Your password was reset by the owner — ask them for the temporary one');
+        return { tempPassword: temp, email: target.email };
+    }
     async removeUser(req, id) {
         if (id === req.user.sub)
             throw new common_1.ForbiddenException('cannot_delete_yourself');
@@ -106,6 +120,15 @@ __decorate([
     __metadata("design:paramtypes", [Object, String, Object]),
     __metadata("design:returntype", Promise)
 ], UsersController.prototype, "changeRole", null);
+__decorate([
+    (0, roles_guard_1.Roles)(role_enum_1.Role.OWNER),
+    (0, common_1.Post)(':id/reset-password'),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "resetPassword", null);
 __decorate([
     (0, roles_guard_1.Roles)(role_enum_1.Role.OWNER),
     (0, common_1.Delete)(':id'),

@@ -91,6 +91,21 @@ export class UsersService {
     await this.save();
   }
 
+  async setPassword(userId: string, newPassword: string): Promise<JsonUser> {
+    const user = this.findById(userId);
+    if (!user) throw new Error('User not found');
+    user.passwordHash = await bcrypt.hash(newPassword, 10);
+    user.updatedAt = new Date().toISOString();
+    await this.save();
+    return user;
+  }
+
+  async verifyPassword(userId: string, password: string): Promise<boolean> {
+    const user = this.findById(userId);
+    if (!user) return false;
+    return bcrypt.compare(password, user.passwordHash);
+  }
+
   listPublic(): Array<Pick<JsonUser, 'id' | 'email' | 'name' | 'role'>> {
     return this.users.map(({ id, email, name, role }) => ({ id, email, name, role }));
   }

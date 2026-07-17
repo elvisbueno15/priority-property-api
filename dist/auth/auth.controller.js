@@ -15,19 +15,32 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthController = void 0;
 const common_1 = require("@nestjs/common");
 const auth_service_1 = require("./auth.service");
+const users_service_1 = require("../users/users.service");
 const jwt_auth_guard_1 = require("./guards/jwt-auth.guard");
 const roles_guard_1 = require("./guards/roles.guard");
 const roles_guard_2 = require("./guards/roles.guard");
 const role_enum_1 = require("../users/entities/role.enum");
 let AuthController = class AuthController {
-    constructor(authService) {
+    constructor(authService, usersService) {
         this.authService = authService;
+        this.usersService = usersService;
     }
     register(dto) {
         return this.authService.register(dto);
     }
     login(dto) {
         return this.authService.login(dto);
+    }
+    /** Signed-in user changes their own password (e.g. after a temp reset). */
+    async changePassword(req, dto) {
+        if (!dto.newPassword || dto.newPassword.length < 6) {
+            throw new common_1.BadRequestException('Password must be at least 6 characters.');
+        }
+        const ok = await this.usersService.verifyPassword(req.user.sub, dto.currentPassword || '');
+        if (!ok)
+            throw new common_1.UnauthorizedException('Current password is wrong.');
+        await this.usersService.setPassword(req.user.sub, dto.newPassword);
+        return { ok: true };
     }
     promote(dto) {
         return this.authService.promote(dto.userId, dto.role);
@@ -49,6 +62,15 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], AuthController.prototype, "login", null);
 __decorate([
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.Post)('change-password'),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "changePassword", null);
+__decorate([
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
     (0, roles_guard_2.Roles)(role_enum_1.Role.OWNER, role_enum_1.Role.ADMIN),
     (0, common_1.Post)('promote'),
@@ -59,6 +81,7 @@ __decorate([
 ], AuthController.prototype, "promote", null);
 exports.AuthController = AuthController = __decorate([
     (0, common_1.Controller)('auth'),
-    __metadata("design:paramtypes", [auth_service_1.AuthService])
+    __metadata("design:paramtypes", [auth_service_1.AuthService,
+        users_service_1.UsersService])
 ], AuthController);
 //# sourceMappingURL=auth.controller.js.map
