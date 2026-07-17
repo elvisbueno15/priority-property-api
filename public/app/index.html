@@ -780,7 +780,7 @@
   // version is served BY that server, so it talks to its own origin.
   const IS_DESKTOP = !!window.ppa;
   let API = localStorage.getItem('ppa_api')
-    || (IS_DESKTOP ? 'https://priority-property-api.bonto.run' : window.location.origin);
+    || (IS_DESKTOP ? 'https://priority-property-api.onrender.com' : window.location.origin);
   let token = localStorage.getItem('ppa_token') || null;
   let me = null;
   let settings = { screenshotIntervalMinutes: 10, allowMonitoring: true };
