@@ -11,7 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AppController = exports.APP_VERSION = void 0;
 const common_1 = require("@nestjs/common");
-exports.APP_VERSION = '0.5.2';
+exports.APP_VERSION = '0.6.0';
 let AppController = class AppController {
     health() {
         return { status: 'ok', now: new Date().toISOString() };
