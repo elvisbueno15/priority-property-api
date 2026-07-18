@@ -5,6 +5,12 @@ import * as fsSync from 'fs';
 import * as path from 'path';
 import { DATA_DIR } from '../data-dir.util';
 
+export interface AttachmentMeta {
+  id: string;
+  name: string;
+  mime: string;
+  size: number;
+}
 export interface ChatMessage {
   id: string;
   channel: string;
@@ -12,11 +18,21 @@ export interface ChatMessage {
   name: string;
   body: string;
   at: string;
+  attachment?: AttachmentMeta;
+}
+interface StoredAttachment extends AttachmentMeta {
+  data: string; // base64 (no data: prefix)
+  by: string;
+  at: string;
 }
 
 const STORE_PATH = path.join(DATA_DIR, 'chat.json');
+const ATTACH_PATH = path.join(DATA_DIR, 'attachments.json');
 const MAX_PER_CHANNEL = 2000;
 const PAGE_SIZE = 100;
+const MAX_FILE_BYTES = 8 * 1024 * 1024;      // 8 MB per file
+const MAX_TOTAL_BYTES = 60 * 1024 * 1024;    // keep the attachment store bounded
+const ALLOWED_MIME = /^(image\/(png|jpe?g|gif|webp|bmp)|application\/pdf|text\/plain|application\/(msword|vnd\.openxmlformats-officedocument\.\w+|vnd\.ms-excel|zip)|audio\/\w+|video\/\w+)$/i;
 
 export const CHANNELS = ['general', 'support', 'executives'];
 
@@ -34,7 +50,9 @@ export function dmParticipants(channel: string): string[] {
 @Injectable()
 export class ChatService {
   private messages: ChatMessage[] = [];
+  private attachments: StoredAttachment[] = [];
   private saveTimer: NodeJS.Timeout | null = null;
+  private attachTimer: NodeJS.Timeout | null = null;
 
   constructor() {
     try {
@@ -42,6 +60,12 @@ export class ChatService {
       this.messages = parsed.messages || [];
     } catch {
       this.messages = [];
+    }
+    try {
+      const parsed = JSON.parse(fsSync.readFileSync(ATTACH_PATH, 'utf-8'));
+      this.attachments = parsed.attachments || [];
+    } catch {
+      this.attachments = [];
     }
   }
 
@@ -56,6 +80,50 @@ export class ChatService {
         console.error('chat store save failed', e);
       }
     }, 400);
+  }
+
+  private scheduleAttachSave() {
+    if (this.attachTimer) return;
+    this.attachTimer = setTimeout(async () => {
+      this.attachTimer = null;
+      try {
+        await fs.mkdir(DATA_DIR, { recursive: true });
+        await fs.writeFile(ATTACH_PATH, JSON.stringify({ attachments: this.attachments }, null, 2), 'utf-8');
+      } catch (e) {
+        console.error('attachment store save failed', e);
+      }
+    }, 400);
+  }
+
+  /** Store an uploaded file (base64) and return its public metadata. */
+  saveAttachment(by: string, name: string, mime: string, dataUrlOrB64: string): AttachmentMeta {
+    const clean = String(dataUrlOrB64 || '').replace(/^data:[^;]+;base64,/, '');
+    if (!clean) throw new BadRequestException('empty_file');
+    if (!ALLOWED_MIME.test(mime || '')) throw new BadRequestException('unsupported_file_type');
+    const size = Math.floor((clean.length * 3) / 4);
+    if (size > MAX_FILE_BYTES) throw new BadRequestException('file_too_large');
+    const rec: StoredAttachment = {
+      id: nanoid(14),
+      name: (name || 'file').slice(0, 200),
+      mime,
+      size,
+      data: clean,
+      by,
+      at: new Date().toISOString(),
+    };
+    this.attachments.push(rec);
+    // Bound the store: drop oldest until under the total budget.
+    let total = this.attachments.reduce((s, a) => s + a.size, 0);
+    while (total > MAX_TOTAL_BYTES && this.attachments.length > 1) {
+      const dropped = this.attachments.shift();
+      total -= dropped ? dropped.size : 0;
+    }
+    this.scheduleAttachSave();
+    return { id: rec.id, name: rec.name, mime: rec.mime, size: rec.size };
+  }
+
+  getAttachment(id: string): StoredAttachment | undefined {
+    return this.attachments.find((a) => a.id === id);
   }
 
   channels() {
@@ -90,10 +158,10 @@ export class ChatService {
     return { ok: true };
   }
 
-  post(user: { sub: string; email: string }, name: string, channel: string, body: string): ChatMessage {
+  post(user: { sub: string; email: string }, name: string, channel: string, body: string, attachment?: AttachmentMeta): ChatMessage {
     this.assertAccess(channel, user.sub);
     const text = (body || '').trim();
-    if (!text) throw new BadRequestException('empty_message');
+    if (!text && !attachment) throw new BadRequestException('empty_message');
     const msg: ChatMessage = {
       id: nanoid(12),
       channel,
@@ -101,6 +169,7 @@ export class ChatService {
       name,
       body: text.slice(0, 4000),
       at: new Date().toISOString(),
+      ...(attachment ? { attachment } : {}),
     };
     this.messages.push(msg);
     const inChannel = this.messages.filter((m) => m.channel === channel);

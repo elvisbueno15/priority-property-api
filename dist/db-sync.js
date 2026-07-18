@@ -51,7 +51,7 @@ const data_dir_util_1 = require("./data-dir.util");
  * keeps working against the local files exactly as before — a DB problem can
  * never take the app down.
  */
-const FILES = ['users.json', 'tracking.json', 'chat.json', 'meetings.json', 'feedback.json'];
+const FILES = ['users.json', 'tracking.json', 'chat.json', 'meetings.json', 'feedback.json', 'attachments.json'];
 let sql = null;
 const lastPushed = {};
 async function restoreFromDb() {

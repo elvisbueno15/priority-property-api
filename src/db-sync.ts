@@ -15,7 +15,7 @@ import { DATA_DIR } from './data-dir.util';
  * keeps working against the local files exactly as before — a DB problem can
  * never take the app down.
  */
-const FILES = ['users.json', 'tracking.json', 'chat.json', 'meetings.json', 'feedback.json'];
+const FILES = ['users.json', 'tracking.json', 'chat.json', 'meetings.json', 'feedback.json', 'attachments.json'];
 let sql: any = null;
 const lastPushed: Record<string, string> = {};
 

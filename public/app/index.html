@@ -332,6 +332,18 @@
     box-shadow:var(--shadow-sm); white-space:pre-wrap; word-break:break-word;
   }
   .msg.mine .bubble{background:var(--blue-soft); border-color:var(--pill-border); border-radius:16px; border-bottom-right-radius:4px;}
+  .chat-att-img{margin-top:4px; max-width:260px; max-height:260px; border-radius:12px; border:1px solid var(--rule-strong); cursor:pointer; display:block; object-fit:cover; box-shadow:var(--shadow-sm);}
+  .chat-att-file{
+    margin-top:4px; display:flex; align-items:center; gap:10px; text-decoration:none;
+    background:var(--surface); border:1px solid var(--rule-strong); border-radius:12px; padding:10px 12px; min-width:220px; max-width:300px;
+    color:var(--ink); transition:background 140ms var(--ease-out), border-color 140ms var(--ease-out);
+  }
+  .chat-att-file:hover{background:var(--surface-2); border-color:var(--blue);}
+  .chat-att-file .att-ic{font-size:28px; color:var(--danger); flex:0 0 auto;}
+  .chat-att-file .att-info{display:flex; flex-direction:column; min-width:0; flex:1;}
+  .chat-att-file .att-name{font-size:13px; font-weight:700; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .chat-att-file .att-size{font-size:11px; color:var(--muted);}
+  .chat-att-file .att-dl{font-size:20px; color:var(--muted); flex:0 0 auto;}
   textarea{
     width:100%; padding:10px 12px; background:var(--surface); border:1px solid var(--rule-strong);
     color:var(--ink); border-radius:10px; outline:none; font-size:14px; font-family:inherit; resize:vertical;
@@ -509,9 +521,22 @@
   .call-dock-actions{display:flex; flex-wrap:wrap; gap:6px; padding:10px 12px;}
   .call-dock-actions .chip{padding:6px 10px; font-size:12px;}
   .call-dock-body{display:none; padding:2px 12px 12px;}
-  .call-dock.expanded .call-dock-body{display:block;}
+  .call-dock.expanded .call-dock-body, .call-dock.maximized .call-dock-body{display:block;}
   .call-dock .participants{margin-top:8px;}
   .call-dock .video-grid{grid-template-columns:1fr; gap:8px; margin-top:10px; max-height:46vh; overflow:auto;}
+  /* Maximized: a large, interactive call stage (great for screen sharing) */
+  .call-dock.maximized{
+    inset:24px; width:auto !important; max-width:none; height:auto; border-radius:var(--radius-lg);
+    display:flex; flex-direction:column;
+  }
+  .call-dock.maximized .call-dock-body{flex:1 1 auto; overflow:auto; display:flex; flex-direction:column;}
+  .call-dock.maximized .video-grid{
+    grid-template-columns:repeat(auto-fit, minmax(340px, 1fr)); grid-auto-rows:1fr;
+    max-height:none; flex:1; margin-top:12px;
+  }
+  .call-dock.maximized .video-tile{aspect-ratio:auto; min-height:220px;}
+  .call-dock.maximized .call-dock-actions{padding:12px 16px;}
+  .call-dock.maximized .call-dock-actions .chip{padding:9px 14px; font-size:14px;}
 
   /* Responsive: keep everything clean in narrow windows / the web version */
   @media (max-width: 940px){
@@ -753,14 +778,17 @@
                 <div class="menu-wrap">
                   <button class="hicon" id="btnChatMore" title="More options"><span class="material-symbols-outlined">more_horiz</span></button>
                   <div class="menu" id="chatMoreMenu">
-                    <button class="menu-item" id="btnClearChat">🧹 Clear chat</button>
+                    <button class="menu-item" id="btnReportProblem">🚩 Report a problem</button>
+                    <button class="menu-item" id="btnMuteConv">🔕 Mute notifications</button>
+                    <button class="menu-item danger" id="btnClearChat">🧹 Clear chat</button>
                   </div>
                 </div>
               </div>
             </div>
             <div class="messages" id="chatMessages"></div>
             <div class="composer2">
-              <button class="cicon" id="btnAttach" title="Attach file"><span class="material-symbols-outlined">attach_file</span></button>
+              <button class="cicon" id="btnAttach" title="Attach a photo, PDF or file"><span class="material-symbols-outlined">attach_file</span></button>
+              <input id="fileInput" type="file" accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.txt,.zip" style="display:none;" />
               <input id="chatInput" placeholder="Type a message..." maxlength="4000" />
               <button class="cicon send" id="btnSend" title="Send message"><span class="material-symbols-outlined fill">send</span></button>
             </div>
@@ -945,8 +973,9 @@
     <div class="call-dock-head">
       <span class="call-live"><span class="dot on"></span>Live</span>
       <div class="call-dock-title" id="roomTitle">—</div>
-      <button class="dock-icon" id="btnExpand" title="Expand / collapse">⤢</button>
-      <button class="dock-icon danger" id="btnLeaveRoom" title="Leave call">✕</button>
+      <button class="dock-icon" id="btnExpand" title="Show / hide video"><span class="material-symbols-outlined">unfold_more</span></button>
+      <button class="dock-icon" id="btnMaximize" title="Maximize / restore"><span class="material-symbols-outlined">open_in_full</span></button>
+      <button class="dock-icon danger" id="btnLeaveRoom" title="Leave call"><span class="material-symbols-outlined">close</span></button>
     </div>
     <div class="call-dock-actions">
       <button class="chip" id="btnMute">🎤 Mute</button>
@@ -1312,6 +1341,7 @@
     if (p.byId === me.id) return;               // I'm the caller
     if (p.toUserId && p.toUserId !== me.id) return;  // DM call for someone else
     if (currentRoom === p.meetingId) return;    // already here
+    if (mutedChannels.has(p.channel)) return;   // this conversation is muted
     // The 'meeting' event will also refresh the list; suppress its duplicate
     // "ready to join" notification for this same call — we ring here instead.
     seenStart.add(p.meetingId); persistSeen();
@@ -1550,10 +1580,13 @@
     const other = usersCache.find(u => u.id === otherId);
     return '🔒 ' + (other ? other.name : 'Direct message');
   }
+  const mutedChannels = new Set(JSON.parse(localStorage.getItem('ppa_muted') || '[]'));
   function updateChatHeader() {
     $('chatTitle').textContent = channelLabel(chatChannel);
     const isDm = chatChannel.startsWith('dm:');
-    $('btnClearChat').style.display = (isDm || isAdminRole(me.role)) ? 'block' : 'none';
+    // Clear chat is a channel-admin action only — never offered inside a private DM.
+    $('btnClearChat').style.display = (!isDm && isAdminRole(me.role)) ? 'block' : 'none';
+    $('btnMuteConv').textContent = (mutedChannels.has(chatChannel) ? '🔔 Unmute notifications' : '🔕 Mute notifications');
     const sub = $('chatSubtitle');
     if (isDm) {
       const otherId = chatChannel.split(':').slice(1).find(id => id !== me.id);
@@ -1596,10 +1629,44 @@
 
   $('btnCall').addEventListener('click', () => startCallHere(false));
   $('btnVideoCall').addEventListener('click', () => startCallHere(true));
-  $('btnAttach').addEventListener('click', () => toast('File sharing is coming soon — for now, drop a link in the message.'));
+  $('btnAttach').addEventListener('click', () => $('fileInput').click());
+  $('fileInput').addEventListener('change', async () => {
+    const file = $('fileInput').files && $('fileInput').files[0];
+    $('fileInput').value = '';
+    if (!file) return;
+    if (file.size > 8 * 1024 * 1024) { toast('File too large — max 8 MB.'); return; }
+    $('btnAttach').disabled = true;
+    toast('Uploading ' + file.name + '…');
+    try {
+      const dataUrl = await new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload = () => res(r.result); r.onerror = () => rej(new Error('Could not read file'));
+        r.readAsDataURL(file);
+      });
+      const meta = await api('/chat/upload', { method: 'POST', body: JSON.stringify({ name: file.name, mime: file.type || 'application/octet-stream', data: dataUrl }) });
+      const text = ($('chatInput').value || '').trim();
+      await api('/chat/messages', { method: 'POST', body: JSON.stringify({ channel: chatChannel, body: text, attachment: meta }) });
+      $('chatInput').value = '';
+      await pollChat(false);
+    } catch (e) { toast(e.message || 'Upload failed'); }
+    finally { $('btnAttach').disabled = false; }
+  });
   // Chat header "more" menu (three dots)
   $('btnChatMore').addEventListener('click', (e) => { e.stopPropagation(); $('chatMoreMenu').classList.toggle('on'); });
   $('chatMoreMenu').addEventListener('click', (e) => e.stopPropagation());
+  $('btnReportProblem').addEventListener('click', () => {
+    $('chatMoreMenu').classList.remove('on');
+    showPage('help');
+    toast('Describe the problem below and send it to us.');
+  });
+  $('btnMuteConv').addEventListener('click', () => {
+    $('chatMoreMenu').classList.remove('on');
+    if (mutedChannels.has(chatChannel)) mutedChannels.delete(chatChannel);
+    else mutedChannels.add(chatChannel);
+    localStorage.setItem('ppa_muted', JSON.stringify([...mutedChannels]));
+    updateChatHeader();
+    toast(mutedChannels.has(chatChannel) ? 'Notifications muted for this conversation.' : 'Notifications on.');
+  });
   async function startCallHere(withVideo) {
     if (!me) return;
     const isDm = chatChannel.startsWith('dm:');
@@ -1636,6 +1703,24 @@
     } catch (e) { toast(e.message); }
   });
 
+  function fmtBytes(n) {
+    n = Number(n) || 0;
+    if (n < 1024) return n + ' B';
+    if (n < 1048576) return (n / 1024).toFixed(0) + ' KB';
+    return (n / 1048576).toFixed(1) + ' MB';
+  }
+  function attachmentHtml(a) {
+    const url = API + '/chat/attachment/' + encodeURIComponent(a.id);
+    if ((a.mime || '').startsWith('image/')) {
+      return '<img class="chat-att-img" src="' + url + '" alt="' + esc(a.name) + '" title="' + esc(a.name) + '" />';
+    }
+    const icon = (a.mime || '') === 'application/pdf' ? 'picture_as_pdf' : 'description';
+    return '<a class="chat-att-file" href="' + url + '" target="_blank" rel="noopener" download="' + esc(a.name) + '">'
+      + '<span class="att-ic material-symbols-outlined">' + icon + '</span>'
+      + '<span class="att-info"><span class="att-name">' + esc(a.name) + '</span>'
+      + '<span class="att-size">' + fmtBytes(a.size) + '</span></span>'
+      + '<span class="material-symbols-outlined att-dl">download</span></a>';
+  }
   function appendMessages(list) {
     if (!list.length) return;
     const box = $('chatMessages');
@@ -1643,12 +1728,16 @@
       const mine = me && m.userId === me.id;
       const div = document.createElement('div');
       div.className = 'msg' + (mine ? ' mine' : '');
+      let inner = m.body ? '<div class="bubble">' + esc(m.body) + '</div>' : '';
+      if (m.attachment) inner += attachmentHtml(m.attachment);
       div.innerHTML = '<div class="msg-meta">' + (mine ? '' : '<b>' + esc(m.name) + '</b>')
-        + '<span>' + fmtClock(m.at) + '</span></div>'
-        + '<div class="bubble">' + esc(m.body) + '</div>';
+        + '<span>' + fmtClock(m.at) + '</span></div>' + inner;
       box.appendChild(div);
       lastMsgId = m.id;
     }
+    // Open image attachments in the fullscreen viewer.
+    box.querySelectorAll('.chat-att-img').forEach(img =>
+      img.addEventListener('click', () => openShot(img.getAttribute('src'))));
     box.scrollTop = box.scrollHeight;
   }
 
@@ -2024,11 +2113,20 @@
     $('videoGrid').innerHTML = '';
     if (currentRoom) { try { await api('/meetings/' + currentRoom + '/leave', { method: 'POST', body: '{}' }); } catch {} }
     currentRoom = null;
-    $('roomCard').style.display = 'none';
+    const rc = $('roomCard');
+    rc.style.display = 'none';
+    rc.classList.remove('expanded', 'maximized');
+    $('btnMaximize').querySelector('.material-symbols-outlined').textContent = 'open_in_full';
     renderMeetings();
   }
   $('btnLeaveRoom').addEventListener('click', leaveRoom);
   $('btnExpand').addEventListener('click', () => $('roomCard').classList.toggle('expanded'));
+  $('btnMaximize').addEventListener('click', () => {
+    const rc = $('roomCard');
+    const max = rc.classList.toggle('maximized');
+    if (max) rc.classList.add('expanded');
+    $('btnMaximize').querySelector('.material-symbols-outlined').textContent = max ? 'close_fullscreen' : 'open_in_full';
+  });
 
   $('btnMute').addEventListener('click', () => {
     rtc.muted = !rtc.muted;
@@ -2087,6 +2185,9 @@
     addVideoTile('vt-local-screen', stream, 'You (screen)', true);
     for (const [uid, peer] of rtc.peers) rtc.screenSenders.set(uid, peer.pc.addTrack(track, stream));
     $('btnShare').textContent = '🖥️ Stop sharing';
+    // Sharing a screen is useless in a tiny box — open the big interactive view.
+    const rc = $('roomCard'); rc.classList.add('expanded', 'maximized');
+    $('btnMaximize').querySelector('.material-symbols-outlined').textContent = 'close_fullscreen';
   });
 
   // ---------- Users / Team ----------
@@ -2214,7 +2315,7 @@
         const status = u.tracking ? '<span class="badge green">Working</span>'
           : (u.online ? '<span class="badge">Online</span>' : '<span class="badge red">Offline</span>');
         const shot = u.lastScreenshot
-          ? '<img class="shot" src="' + API + esc(u.lastScreenshot) + '" data-full="' + API + esc(u.lastScreenshot) + '" />'
+          ? '<img class="shot" src="' + shotSrc(u.lastScreenshot) + '" data-full="' + shotSrc(u.lastScreenshot) + '" />'
           : '<span class="muted">—</span>';
         // Owner/admin controls: force-start a forgotten shift, or stop one.
         let ctrl = '';
@@ -2272,12 +2373,15 @@
     clearInterval(timers.shots);
     timers.shots = setInterval(loadShotGrid, 15000);
   }
+  // Screenshots are durable base64 data URLs (survive restarts); fall back to
+  // the legacy /screenshots disk path for any older rows.
+  function shotSrc(x) { return x && String(x).startsWith('data:') ? x : (API + x); }
   async function loadShotGrid() {
     if (!shotViewerUser) return;
     try {
       const shots = await api('/time-tracking/user/' + shotViewerUser + '/screenshots');
       $('shotGridImgs').innerHTML = shots.length ? shots.map(s =>
-        '<div class="shot-cell"><img src="' + API + esc(s.path) + '" data-full="' + API + esc(s.path) + '" />'
+        '<div class="shot-cell"><img src="' + shotSrc(s.dataUrl || s.path) + '" data-full="' + shotSrc(s.dataUrl || s.path) + '" />'
         + '<div class="shot-when">' + fmtClock(s.capturedAt) + '</div></div>'
       ).join('') : '<span class="muted">No screenshots yet for this employee today.</span>';
       document.querySelectorAll('#shotGridImgs img').forEach(img =>

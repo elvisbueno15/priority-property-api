@@ -34,6 +34,7 @@ export interface ScreenshotRow {
   userId: string;
   capturedAt: string;
   path: string;
+  dataUrl?: string; // durable base64 (survives restarts via db-sync); disk file is best-effort
 }
 
 interface TrackingStore {
@@ -45,6 +46,7 @@ interface TrackingStore {
 
 const STORE_PATH = path.join(DATA_DIR, 'tracking.json');
 const SCREENSHOT_DIR = path.join(DATA_DIR, 'screenshots');
+const SHOTS_PER_ENTRY = 24;   // retention cap so tracking.json (synced to Supabase) stays bounded
 const MAX_USAGE_PER_ENTRY = 1000;
 
 const now = () => new Date().toISOString();
@@ -194,19 +196,38 @@ export class TimeTrackingService {
     const data = (imageBase64 || '').replace(/^data:image\/\w+;base64,/, '');
     if (!data) throw new BadRequestException('empty_image');
     const fileName = `${entry.id}-${Date.now()}.jpg`;
-    await fs.mkdir(SCREENSHOT_DIR, { recursive: true });
-    await fs.writeFile(path.join(SCREENSHOT_DIR, fileName), Buffer.from(data, 'base64'));
+    // Best-effort disk write (fast serving in this container); the durable copy
+    // is the base64 in the row, which rides db-sync to Supabase and survives
+    // restarts/redeploys (the disk folder does not).
+    try {
+      await fs.mkdir(SCREENSHOT_DIR, { recursive: true });
+      await fs.writeFile(path.join(SCREENSHOT_DIR, fileName), Buffer.from(data, 'base64'));
+    } catch {}
     const rec: ScreenshotRow = {
       id: nanoid(10),
       userId: entry.userId,
       capturedAt: now(),
       path: `/screenshots/${fileName}`,
+      dataUrl: 'data:image/jpeg;base64,' + data,
     };
     const arr = this.store.screenshots[entry.id] || [];
     arr.push(rec);
+    // Keep only the most recent shots per entry so tracking.json stays bounded.
+    if (arr.length > SHOTS_PER_ENTRY) arr.splice(0, arr.length - SHOTS_PER_ENTRY);
     this.store.screenshots[entry.id] = arr;
+    this.pruneOldScreenshots();
     this.scheduleSave();
-    return rec;
+    return { id: rec.id, userId: rec.userId, capturedAt: rec.capturedAt, path: rec.path };
+  }
+
+  /** Drop screenshots attached to entries that started more than 3 days ago. */
+  private pruneOldScreenshots() {
+    const cutoff = Date.now() - 3 * 24 * 60 * 60 * 1000;
+    for (const entry of this.store.entries) {
+      if (new Date(entry.startTime).getTime() < cutoff && this.store.screenshots[entry.id]) {
+        delete this.store.screenshots[entry.id];
+      }
+    }
   }
 
   listScreenshots(entryId: string) {
@@ -274,7 +295,7 @@ export class TimeTrackingService {
         msToday: this.msToday(u.id),
         lastApp: lastUsage ? lastUsage.appName : null,
         lastWindowTitle: lastUsage ? lastUsage.windowTitle : null,
-        lastScreenshot: lastShot ? lastShot.path : null,
+        lastScreenshot: lastShot ? (lastShot.dataUrl || lastShot.path) : null,
         activeEntryId: active ? active.id : null,
       };
     });

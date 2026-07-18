@@ -18,7 +18,7 @@ exports.ChatModule = ChatModule;
 exports.ChatModule = ChatModule = __decorate([
     (0, common_1.Module)({
         imports: [users_module_1.UsersModule, activity_module_1.ActivityModule],
-        controllers: [chat_controller_1.ChatController],
+        controllers: [chat_controller_1.ChatController, chat_controller_1.ChatAttachmentController],
         providers: [chat_service_1.ChatService],
     })
 ], ChatModule);

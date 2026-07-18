@@ -12,7 +12,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ChatController = void 0;
+exports.ChatAttachmentController = exports.ChatController = void 0;
 const common_1 = require("@nestjs/common");
 const chat_service_1 = require("./chat.service");
 const presence_service_1 = require("../users/presence.service");
@@ -38,13 +38,17 @@ let ChatController = class ChatController {
     clear(req, channel = 'general') {
         return this.chat.clear(channel, req.user);
     }
+    /** Upload a file (base64) to attach to a message; returns its metadata. */
+    upload(req, body) {
+        return this.chat.saveAttachment(req.user.sub, body.name, body.mime, body.data);
+    }
     post(req, body) {
         this.presence.touch(req.user.sub);
         const user = this.usersService.findById(req.user.sub);
         const name = user ? user.name : req.user.email;
         const channel = body.channel || 'general';
-        const msg = this.chat.post(req.user, name, channel, body.body);
-        this.notify(req.user.sub, name, channel, msg.body);
+        const msg = this.chat.post(req.user, name, channel, body.body, body.attachment);
+        this.notify(req.user.sub, name, channel, msg.body || (msg.attachment ? '📎 ' + msg.attachment.name : ''));
         // Realtime push so open chats refresh instantly (polling stays as fallback).
         if ((0, chat_service_1.isDmChannel)(channel)) {
             for (const id of (0, chat_service_1.dmParticipants)(channel))
@@ -101,6 +105,14 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], ChatController.prototype, "clear", null);
 __decorate([
+    (0, common_1.Post)('upload'),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", void 0)
+], ChatController.prototype, "upload", null);
+__decorate([
     (0, common_1.Post)('messages'),
     __param(0, (0, common_1.Request)()),
     __param(1, (0, common_1.Body)()),
@@ -117,4 +129,35 @@ exports.ChatController = ChatController = __decorate([
         activity_service_1.ActivityService,
         events_service_1.EventsService])
 ], ChatController);
+/**
+ * Serves attachment bytes. Public on purpose: <img> / download links can't send
+ * the JWT header, and ids are unguessable (nanoid). Same model as /screenshots.
+ */
+let ChatAttachmentController = class ChatAttachmentController {
+    constructor(chat) {
+        this.chat = chat;
+    }
+    attachment(id, res) {
+        const a = this.chat.getAttachment(id);
+        if (!a)
+            throw new common_1.NotFoundException('not_found');
+        res.setHeader('Content-Type', a.mime || 'application/octet-stream');
+        res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(a.name)}"`);
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        res.end(Buffer.from(a.data, 'base64'));
+    }
+};
+exports.ChatAttachmentController = ChatAttachmentController;
+__decorate([
+    (0, common_1.Get)('attachment/:id'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], ChatAttachmentController.prototype, "attachment", null);
+exports.ChatAttachmentController = ChatAttachmentController = __decorate([
+    (0, common_1.Controller)('chat'),
+    __metadata("design:paramtypes", [chat_service_1.ChatService])
+], ChatAttachmentController);
 //# sourceMappingURL=chat.controller.js.map
