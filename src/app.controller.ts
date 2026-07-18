@@ -1,6 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
 
-export const APP_VERSION = '0.6.0';
+export const APP_VERSION = '0.7.0';
 
 @Controller()
 export class AppController {
