@@ -48,7 +48,10 @@ export class UsersService {
   }
 
   findByEmail(email: string): JsonUser | undefined {
-    return this.users.find(u => u.email === email);
+    // Email is case-insensitive — otherwise "Elvis@x.com" wouldn't match a
+    // stored "elvis@x.com" and password reset / login would silently fail.
+    const needle = (email || '').trim().toLowerCase();
+    return this.users.find(u => u.email.toLowerCase() === needle);
   }
 
   findById(id: string): JsonUser | undefined {

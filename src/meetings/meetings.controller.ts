@@ -1,5 +1,5 @@
-import { Controller, Get, Post, Delete, Body, Param, Request, UseGuards } from '@nestjs/common';
-import { MeetingsService } from './meetings.service';
+import { Controller, Get, Post, Delete, Body, Param, Request, UseGuards, ForbiddenException } from '@nestjs/common';
+import { MeetingsService, isDmChannel, dmParticipants } from './meetings.service';
 import { PresenceService } from '../users/presence.service';
 import { UsersService } from '../users/users.service';
 import { ActivityService } from '../activity/activity.service';
@@ -22,7 +22,11 @@ export class MeetingsController {
   @Get()
   list(@Request() req: any) {
     this.presence.touch(req.user.sub);
-    return this.meetings.listUpcoming();
+    // Private (DM) calls are only visible to their two participants — the
+    // channel is 'dm:<idA>:<idB>', so membership is an id match.
+    return this.meetings
+      .listUpcoming()
+      .filter((m) => !m.channel.startsWith('dm:') || m.channel.includes(req.user.sub) || m.createdBy === req.user.sub);
   }
 
   @Roles(Role.OWNER, Role.ADMIN)
@@ -43,25 +47,38 @@ export class MeetingsController {
    */
   @Post('call')
   startCall(@Request() req: any, @Body() body: { channel?: string; title?: string; toUserId?: string }) {
+    const me = req.user.sub;
+    this.meetings.assertCallAllowed(me);
+    const channel = body.channel || 'general';
+    // For a private call the caller must actually be one of the two people in
+    // the DM channel — otherwise they can't forge a call into someone else's DM.
+    const dm = isDmChannel(channel);
+    if (dm) {
+      const parts = dmParticipants(channel);
+      if (parts.length !== 2 || !parts.includes(me)) throw new ForbiddenException('not_your_dm');
+    }
     const meeting = this.meetings.create(req.user, {
       title: (body.title || 'Call').slice(0, 120),
       startsAt: new Date().toISOString(),
       durationMinutes: 60,
-      channel: body.channel || 'general',
+      channel,
     });
-    const caller = this.usersService.findById(req.user.sub);
+    const caller = this.usersService.findById(me);
     const callerName = caller ? caller.name : 'Someone';
-    const targets = body.toUserId
-      ? [body.toUserId]
-      : this.usersService.listPublic().filter((u) => u.id !== req.user.sub).map((u) => u.id);
-    this.activity.pushMany(targets, 'meeting', `📞 ${callerName} started a call: ${meeting.title}`);
-    this.events.emitAll('call', {
-      meetingId: meeting.id,
-      channel: meeting.channel,
-      byId: req.user.sub,
-      byName: callerName,
-      toUserId: body.toUserId || null,
-    });
+    const payload = { meetingId: meeting.id, channel: meeting.channel, byId: me, byName: callerName, toUserId: dm ? dmParticipants(channel).find((id) => id !== me) || null : null };
+
+    if (dm) {
+      // Ring ONLY the other participant — never broadcast a private call's id.
+      const other = payload.toUserId;
+      if (other) {
+        this.activity.pushMany([other], 'meeting', `📞 ${callerName} is calling you`);
+        this.events.emitToUser(other, 'call', payload);
+      }
+    } else {
+      const others = this.usersService.listPublic().filter((u) => u.id !== me).map((u) => u.id);
+      this.activity.pushMany(others, 'meeting', `📞 ${callerName} started a call: ${meeting.title}`);
+      this.events.emitAll('call', payload);
+    }
     this.events.emitAll('meeting', {});
     return meeting;
   }
@@ -97,7 +114,8 @@ export class MeetingsController {
   }
 
   @Get(':id/room')
-  room(@Param('id') id: string) {
+  room(@Request() req: any, @Param('id') id: string) {
+    this.meetings.assertAccess(id, req.user.sub);
     return this.meetings.room(id);
   }
 }

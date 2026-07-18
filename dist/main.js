@@ -42,6 +42,7 @@ const app_module_1 = require("./app.module");
 const events_service_1 = require("./events/events.service");
 const data_dir_util_1 = require("./data-dir.util");
 const db_sync_1 = require("./db-sync");
+const keep_alive_1 = require("./keep-alive");
 async function bootstrap() {
     // Restore data from Supabase BEFORE services read their files on boot.
     await (0, db_sync_1.restoreFromDb)();
@@ -80,6 +81,7 @@ async function bootstrap() {
     });
     app.get(events_service_1.EventsService, { strict: false }).bind(io);
     (0, db_sync_1.startDbSync)();
+    (0, keep_alive_1.startKeepAlive)();
     console.log(`API running on http://0.0.0.0:${port}`);
 }
 bootstrap();

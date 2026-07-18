@@ -32,7 +32,11 @@ let MeetingsController = class MeetingsController {
     }
     list(req) {
         this.presence.touch(req.user.sub);
-        return this.meetings.listUpcoming();
+        // Private (DM) calls are only visible to their two participants — the
+        // channel is 'dm:<idA>:<idB>', so membership is an id match.
+        return this.meetings
+            .listUpcoming()
+            .filter((m) => !m.channel.startsWith('dm:') || m.channel.includes(req.user.sub) || m.createdBy === req.user.sub);
     }
     create(req, body) {
         const meeting = this.meetings.create(req.user, body);
@@ -48,25 +52,39 @@ let MeetingsController = class MeetingsController {
      * everyone else for a channel call.
      */
     startCall(req, body) {
+        const me = req.user.sub;
+        this.meetings.assertCallAllowed(me);
+        const channel = body.channel || 'general';
+        // For a private call the caller must actually be one of the two people in
+        // the DM channel — otherwise they can't forge a call into someone else's DM.
+        const dm = (0, meetings_service_1.isDmChannel)(channel);
+        if (dm) {
+            const parts = (0, meetings_service_1.dmParticipants)(channel);
+            if (parts.length !== 2 || !parts.includes(me))
+                throw new common_1.ForbiddenException('not_your_dm');
+        }
         const meeting = this.meetings.create(req.user, {
             title: (body.title || 'Call').slice(0, 120),
             startsAt: new Date().toISOString(),
             durationMinutes: 60,
-            channel: body.channel || 'general',
+            channel,
         });
-        const caller = this.usersService.findById(req.user.sub);
+        const caller = this.usersService.findById(me);
         const callerName = caller ? caller.name : 'Someone';
-        const targets = body.toUserId
-            ? [body.toUserId]
-            : this.usersService.listPublic().filter((u) => u.id !== req.user.sub).map((u) => u.id);
-        this.activity.pushMany(targets, 'meeting', `📞 ${callerName} started a call: ${meeting.title}`);
-        this.events.emitAll('call', {
-            meetingId: meeting.id,
-            channel: meeting.channel,
-            byId: req.user.sub,
-            byName: callerName,
-            toUserId: body.toUserId || null,
-        });
+        const payload = { meetingId: meeting.id, channel: meeting.channel, byId: me, byName: callerName, toUserId: dm ? (0, meetings_service_1.dmParticipants)(channel).find((id) => id !== me) || null : null };
+        if (dm) {
+            // Ring ONLY the other participant — never broadcast a private call's id.
+            const other = payload.toUserId;
+            if (other) {
+                this.activity.pushMany([other], 'meeting', `📞 ${callerName} is calling you`);
+                this.events.emitToUser(other, 'call', payload);
+            }
+        }
+        else {
+            const others = this.usersService.listPublic().filter((u) => u.id !== me).map((u) => u.id);
+            this.activity.pushMany(others, 'meeting', `📞 ${callerName} started a call: ${meeting.title}`);
+            this.events.emitAll('call', payload);
+        }
         this.events.emitAll('meeting', {});
         return meeting;
     }
@@ -89,7 +107,8 @@ let MeetingsController = class MeetingsController {
         this.presence.touch(req.user.sub);
         return this.meetings.drainSignals(id, req.user.sub);
     }
-    room(id) {
+    room(req, id) {
+        this.meetings.assertAccess(id, req.user.sub);
         return this.meetings.room(id);
     }
 };
@@ -162,9 +181,10 @@ __decorate([
 ], MeetingsController.prototype, "signals", null);
 __decorate([
     (0, common_1.Get)(':id/room'),
-    __param(0, (0, common_1.Param)('id')),
+    __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Param)('id')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", void 0)
 ], MeetingsController.prototype, "room", null);
 exports.MeetingsController = MeetingsController = __decorate([

@@ -76,7 +76,10 @@ let UsersService = class UsersService {
         await fs_1.promises.writeFile(this.filePath, JSON.stringify(this.users, null, 2), 'utf-8');
     }
     findByEmail(email) {
-        return this.users.find(u => u.email === email);
+        // Email is case-insensitive — otherwise "Elvis@x.com" wouldn't match a
+        // stored "elvis@x.com" and password reset / login would silently fail.
+        const needle = (email || '').trim().toLowerCase();
+        return this.users.find(u => u.email.toLowerCase() === needle);
     }
     findById(id) {
         return this.users.find(u => u.id === id);

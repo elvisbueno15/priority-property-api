@@ -7,6 +7,7 @@ import { AppModule } from './app.module';
 import { EventsService } from './events/events.service';
 import { DATA_DIR } from './data-dir.util';
 import { restoreFromDb, startDbSync } from './db-sync';
+import { startKeepAlive } from './keep-alive';
 
 async function bootstrap() {
   // Restore data from Supabase BEFORE services read their files on boot.
@@ -47,6 +48,7 @@ async function bootstrap() {
   app.get(EventsService, { strict: false }).bind(io);
 
   startDbSync();
+  startKeepAlive();
   console.log(`API running on http://0.0.0.0:${port}`);
 }
 bootstrap();

@@ -51,13 +51,18 @@ const email_1 = require("../email");
 const bcrypt = __importStar(require("bcryptjs"));
 const role_enum_1 = require("../users/entities/role.enum");
 const RESET_CODE_TTL_MS = 15 * 60 * 1000;
+// A 6-digit code has 1M combos; capping wrong guesses per code (combined with
+// the 60s email cooldown) keeps brute force infeasible.
+const MAX_RESET_ATTEMPTS = 5;
 let AuthService = class AuthService {
     constructor(usersService, jwtService) {
         this.usersService = usersService;
         this.jwtService = jwtService;
-        // email (lowercased) -> { code, expires }. In-memory on purpose: codes are
-        // short-lived, so a restart just means the user requests a fresh one.
+        // email (lowercased) -> { code, expires, attempts }. In-memory on purpose:
+        // codes are short-lived, so a restart just means the user requests a fresh one.
         this.resetCodes = new Map();
+        // Cooldown so nobody can flood a teammate's inbox via /auth/forgot-password.
+        this.lastResetEmailAt = new Map();
     }
     async register(dto) {
         const existing = this.usersService.findByEmail(dto.email);
@@ -92,9 +97,16 @@ let AuthService = class AuthService {
         const clean = (email || '').trim();
         const user = this.usersService.findByEmail(clean);
         if (user) {
+            const key = user.email.toLowerCase();
+            // Same "ok" answer during the cooldown — silent, so it leaks nothing.
+            if (Date.now() - (this.lastResetEmailAt.get(key) || 0) < 60_000)
+                return { ok: true };
+            this.lastResetEmailAt.set(key, Date.now());
             const code = String((0, crypto_1.randomInt)(0, 1_000_000)).padStart(6, '0');
-            this.resetCodes.set(user.email.toLowerCase(), { code, expires: Date.now() + RESET_CODE_TTL_MS });
-            await (0, email_1.sendResetCodeEmail)(user.email, code);
+            this.resetCodes.set(key, { code, expires: Date.now() + RESET_CODE_TTL_MS, attempts: 0 });
+            // Fire-and-forget: don't await, so a real account (which triggers a live
+            // Resend call) can't be told apart from an unknown one by response timing.
+            void (0, email_1.sendResetCodeEmail)(user.email, code);
         }
         return { ok: true };
     }
@@ -105,7 +117,14 @@ let AuthService = class AuthService {
         }
         const key = (email || '').trim().toLowerCase();
         const entry = this.resetCodes.get(key);
-        if (!entry || entry.expires < Date.now() || entry.code !== (code || '').trim()) {
+        if (!entry || entry.expires < Date.now()) {
+            throw new common_1.UnauthorizedException('Invalid or expired code.');
+        }
+        if (entry.code !== (code || '').trim()) {
+            // Burn the code after too many wrong guesses so it can't be brute-forced;
+            // the attacker then has to request a new one (rate-limited to 1/min).
+            if (++entry.attempts >= MAX_RESET_ATTEMPTS)
+                this.resetCodes.delete(key);
             throw new common_1.UnauthorizedException('Invalid or expired code.');
         }
         const user = this.usersService.findByEmail(email);

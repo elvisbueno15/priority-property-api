@@ -43,6 +43,8 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MeetingsService = void 0;
+exports.isDmChannel = isDmChannel;
+exports.dmParticipants = dmParticipants;
 const common_1 = require("@nestjs/common");
 const nanoid_1 = require("nanoid");
 const fs_1 = require("fs");
@@ -55,6 +57,20 @@ const STORE_PATH = path.join(data_dir_util_1.DATA_DIR, 'meetings.json');
 const ROOM_PING_WINDOW_MS = 30_000;
 const SIGNAL_TTL_MS = 60_000;
 const MAX_SIGNALS_PER_USER = 200;
+// Drop meetings that ended more than this ago so the store can't grow forever
+// (instant calls create a meeting each time).
+const PRUNE_AFTER_MS = 6 * 60 * 60_000;
+// Anti-abuse: at most this many instant calls per user inside the window.
+const CALL_WINDOW_MS = 60_000;
+const MAX_CALLS_PER_WINDOW = 6;
+/** A private call's channel is 'dm:<idA>:<idB>'. */
+function isDmChannel(channel) {
+    return typeof channel === 'string' && channel.startsWith('dm:');
+}
+/** The two user ids in a 'dm:<idA>:<idB>' channel. */
+function dmParticipants(channel) {
+    return channel.slice(3).split(':').filter(Boolean);
+}
 let MeetingsService = class MeetingsService {
     constructor(usersService) {
         this.usersService = usersService;
@@ -64,6 +80,8 @@ let MeetingsService = class MeetingsService {
         this.rooms = new Map();
         // meetingId -> recipient userId -> queued WebRTC signals (drained on poll)
         this.signals = new Map();
+        // userId -> recent instant-call timestamps (rate limiting)
+        this.callTimes = new Map();
         try {
             const parsed = JSON.parse(fsSync.readFileSync(STORE_PATH, 'utf-8'));
             this.meetings = parsed.meetings || [];
@@ -99,14 +117,44 @@ let MeetingsService = class MeetingsService {
             title: title.slice(0, 120),
             startsAt: starts.toISOString(),
             durationMinutes: Math.max(5, Math.min(480, Number(data.durationMinutes) || 30)),
-            channel: (data.channel || 'general').trim().slice(0, 40),
+            // 80: a DM channel is 'dm:<uuid>:<uuid>' (76 chars) and must survive
+            // intact — truncating it would break DM-call privacy checks.
+            channel: (data.channel || 'general').trim().slice(0, 80),
             createdBy: user.sub,
             createdByName: creator ? creator.name : '',
             createdAt: new Date().toISOString(),
         };
+        // Prune long-ended meetings so instant calls can't grow the store forever.
+        const staleCutoff = Date.now() - PRUNE_AFTER_MS;
+        this.meetings = this.meetings.filter((x) => new Date(x.startsAt).getTime() + x.durationMinutes * 60000 > staleCutoff);
         this.meetings.push(meeting);
         this.scheduleSave();
         return meeting;
+    }
+    /** Public-channel calls are company-wide; DM calls only their participants. */
+    canAccess(meeting, userId) {
+        if (!isDmChannel(meeting.channel))
+            return true;
+        return meeting.createdBy === userId || dmParticipants(meeting.channel).includes(userId);
+    }
+    /** Look up a meeting and enforce that `userId` is allowed in its room. */
+    assertAccess(meetingId, userId) {
+        const m = this.meetings.find((x) => x.id === meetingId);
+        if (!m)
+            throw new common_1.NotFoundException('meeting_not_found');
+        if (!this.canAccess(m, userId))
+            throw new common_1.ForbiddenException('not_a_participant');
+        return m;
+    }
+    /** Throttle instant calls per user; throws if over the limit. */
+    assertCallAllowed(userId) {
+        const now = Date.now();
+        const recent = (this.callTimes.get(userId) || []).filter((t) => now - t < CALL_WINDOW_MS);
+        if (recent.length >= MAX_CALLS_PER_WINDOW) {
+            throw new common_1.BadRequestException('Too many calls — wait a moment before starting another.');
+        }
+        recent.push(now);
+        this.callTimes.set(userId, recent);
     }
     remove(id, user) {
         const m = this.meetings.find((x) => x.id === id);
@@ -129,9 +177,7 @@ let MeetingsService = class MeetingsService {
             .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
     }
     ping(meetingId, userId) {
-        const m = this.meetings.find((x) => x.id === meetingId);
-        if (!m)
-            throw new common_1.NotFoundException('meeting_not_found');
+        this.assertAccess(meetingId, userId);
         let room = this.rooms.get(meetingId);
         if (!room) {
             room = new Map();
@@ -147,9 +193,10 @@ let MeetingsService = class MeetingsService {
     }
     /** Queue a WebRTC signal for another participant in the same room. */
     sendSignal(meetingId, fromUser, to, type, data) {
-        const m = this.meetings.find((x) => x.id === meetingId);
-        if (!m)
-            throw new common_1.NotFoundException('meeting_not_found');
+        const m = this.assertAccess(meetingId, fromUser.sub);
+        // The recipient must also be allowed in the room — never relay an intruder in.
+        if (!this.canAccess(m, to))
+            throw new common_1.ForbiddenException('recipient_not_a_participant');
         const sender = this.usersService.findById(fromUser.sub);
         let perMeeting = this.signals.get(meetingId);
         if (!perMeeting) {
@@ -163,6 +210,7 @@ let MeetingsService = class MeetingsService {
     }
     /** Drain my pending signals (drops anything older than the TTL). */
     drainSignals(meetingId, userId) {
+        this.assertAccess(meetingId, userId);
         const queue = this.signals.get(meetingId)?.get(userId) || [];
         this.signals.get(meetingId)?.set(userId, []);
         const cutoff = Date.now() - SIGNAL_TTL_MS;

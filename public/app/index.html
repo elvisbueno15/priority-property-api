@@ -1049,6 +1049,7 @@
   function logout(msg) {
     stopLoops();
     if (currentRoom) leaveRoom();
+    hideCallBanner();
     try { socket?.disconnect(); } catch {}
     socket = null;
     chatChannel = 'general'; usersCache = [];
@@ -1495,8 +1496,9 @@
       const del = isAdminRole(me.role) ? '<button class="chip danger" data-del="' + m.id + '">Delete</button>' : '';
       return '<div class="meeting-item">'
         + '<div class="left"><div class="title">' + esc(m.title) + ' ' + badge + '</div>'
-        + '<div class="sub">' + fmtDay(m.startsAt) + ' at ' + fmtClock(m.startsAt) + ' · ' + m.durationMinutes + ' min · #'
-        + esc(m.channel) + ' · by ' + esc(m.createdByName || 'admin') + '</div></div>'
+        + '<div class="sub">' + fmtDay(m.startsAt) + ' at ' + fmtClock(m.startsAt) + ' · ' + m.durationMinutes + ' min · '
+        + (m.channel.startsWith('dm:') ? '🔒 Private call' : '#' + esc(m.channel))
+        + ' · by ' + esc(m.createdByName || 'admin') + '</div></div>'
         + '<div class="actions"><button class="chip green" data-join="' + m.id + '">'
         + (currentRoom === m.id ? 'In the room' : 'Join') + '</button>' + del + '</div>'
         + '</div>';

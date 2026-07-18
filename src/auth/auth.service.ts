@@ -7,12 +7,17 @@ import * as bcrypt from 'bcryptjs';
 import { Role } from '../users/entities/role.enum';
 
 const RESET_CODE_TTL_MS = 15 * 60 * 1000;
+// A 6-digit code has 1M combos; capping wrong guesses per code (combined with
+// the 60s email cooldown) keeps brute force infeasible.
+const MAX_RESET_ATTEMPTS = 5;
 
 @Injectable()
 export class AuthService {
-  // email (lowercased) -> { code, expires }. In-memory on purpose: codes are
-  // short-lived, so a restart just means the user requests a fresh one.
-  private resetCodes = new Map<string, { code: string; expires: number }>();
+  // email (lowercased) -> { code, expires, attempts }. In-memory on purpose:
+  // codes are short-lived, so a restart just means the user requests a fresh one.
+  private resetCodes = new Map<string, { code: string; expires: number; attempts: number }>();
+  // Cooldown so nobody can flood a teammate's inbox via /auth/forgot-password.
+  private lastResetEmailAt = new Map<string, number>();
 
   constructor(
     private readonly usersService: UsersService,
@@ -52,9 +57,15 @@ export class AuthService {
     const clean = (email || '').trim();
     const user = this.usersService.findByEmail(clean);
     if (user) {
+      const key = user.email.toLowerCase();
+      // Same "ok" answer during the cooldown — silent, so it leaks nothing.
+      if (Date.now() - (this.lastResetEmailAt.get(key) || 0) < 60_000) return { ok: true };
+      this.lastResetEmailAt.set(key, Date.now());
       const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
-      this.resetCodes.set(user.email.toLowerCase(), { code, expires: Date.now() + RESET_CODE_TTL_MS });
-      await sendResetCodeEmail(user.email, code);
+      this.resetCodes.set(key, { code, expires: Date.now() + RESET_CODE_TTL_MS, attempts: 0 });
+      // Fire-and-forget: don't await, so a real account (which triggers a live
+      // Resend call) can't be told apart from an unknown one by response timing.
+      void sendResetCodeEmail(user.email, code);
     }
     return { ok: true };
   }
@@ -66,7 +77,13 @@ export class AuthService {
     }
     const key = (email || '').trim().toLowerCase();
     const entry = this.resetCodes.get(key);
-    if (!entry || entry.expires < Date.now() || entry.code !== (code || '').trim()) {
+    if (!entry || entry.expires < Date.now()) {
+      throw new UnauthorizedException('Invalid or expired code.');
+    }
+    if (entry.code !== (code || '').trim()) {
+      // Burn the code after too many wrong guesses so it can't be brute-forced;
+      // the attacker then has to request a new one (rate-limited to 1/min).
+      if (++entry.attempts >= MAX_RESET_ATTEMPTS) this.resetCodes.delete(key);
       throw new UnauthorizedException('Invalid or expired code.');
     }
     const user = this.usersService.findByEmail(email);
