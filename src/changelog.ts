@@ -17,6 +17,16 @@ export interface ReleaseNote {
 
 export const CHANGELOG: ReleaseNote[] = [
   {
+    version: '1.0.0',
+    date: '2026-07-19',
+    title: 'Auto-updating app & release notes',
+    notes: [
+      { kind: 'new', text: 'The app now updates itself automatically in the background — no more re-downloading' },
+      { kind: 'new', text: 'This "What\'s new" panel: every update lists what changed, so you can follow the progress' },
+      { kind: 'improve', text: 'Proper Windows installer (no admin needed) that installs in seconds' },
+    ],
+  },
+  {
     version: '0.9.0',
     date: '2026-07-19',
     title: 'Notifications, ringtones & full-screen sharing',
