@@ -404,6 +404,15 @@
   .video-grid:empty{display:none;}
   .video-tile{position:relative; background:#000; border-radius:10px; overflow:hidden; aspect-ratio:16/9;}
   .video-tile video{width:100%; height:100%; object-fit:contain; display:block; background:#000;}
+  .video-tile .tile-fs{
+    position:absolute; top:6px; right:6px; width:30px; height:30px; border:none; border-radius:8px;
+    background:rgba(0,0,0,.5); color:#fff; cursor:pointer; display:none; align-items:center; justify-content:center;
+  }
+  .video-tile .tile-fs .material-symbols-outlined{font-size:18px;}
+  .video-tile:hover .tile-fs{display:inline-flex;}
+  .video-tile:fullscreen{width:100vw; height:100vh; border-radius:0; aspect-ratio:auto; background:#000;}
+  .video-tile:fullscreen video{width:100%; height:100%; object-fit:contain;}
+  .video-tile:fullscreen .tile-fs{display:inline-flex;}
   .video-tile .vlabel{
     position:absolute; left:8px; bottom:8px; background:rgba(0,0,0,.6); color:#fff;
     font-size:11px; font-weight:700; padding:3px 8px; border-radius:6px;
@@ -975,6 +984,7 @@
       <div class="call-dock-title" id="roomTitle">—</div>
       <button class="dock-icon" id="btnExpand" title="Show / hide video"><span class="material-symbols-outlined">unfold_more</span></button>
       <button class="dock-icon" id="btnMaximize" title="Maximize / restore"><span class="material-symbols-outlined">open_in_full</span></button>
+      <button class="dock-icon" id="btnFullscreen" title="Full screen"><span class="material-symbols-outlined">fullscreen</span></button>
       <button class="dock-icon danger" id="btnLeaveRoom" title="Leave call"><span class="material-symbols-outlined">close</span></button>
     </div>
     <div class="call-dock-actions">
@@ -1066,9 +1076,51 @@
   }
   function notify(title, body, onclick) {
     try {
-      const n = new Notification(title, { body });
+      const n = new Notification(title, { body, icon: 'src/renderer/assets/icon.png' });
       if (onclick) n.onclick = () => { window.focus(); onclick(); };
     } catch {}
+  }
+
+  // ---------- Sound (WebAudio — no assets needed) ----------
+  let _ac = null;
+  function ac() {
+    if (!_ac) { try { _ac = new (window.AudioContext || window.webkitAudioContext)(); } catch {} }
+    if (_ac && _ac.state === 'suspended') { try { _ac.resume(); } catch {} }
+    return _ac;
+  }
+  function unlockAudio() { ac(); }   // call from a user gesture (login) so sound is allowed later
+  function tone(freq, start, dur, vol) {
+    const c = _ac; if (!c) return;
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = 'sine'; o.frequency.value = freq; o.connect(g); g.connect(c.destination);
+    const t = c.currentTime + start;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol || 0.18, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.start(t); o.stop(t + dur + 0.02);
+  }
+  function playDing() { if (!ac()) return; tone(880, 0, 0.18, 0.16); tone(1175, 0.12, 0.22, 0.14); }
+  let ringTimer = null;
+  function startRing() {
+    stopRing(); if (!ac()) return;
+    const beat = () => { tone(523, 0, 0.4, 0.2); tone(659, 0.45, 0.5, 0.2); };
+    beat(); ringTimer = setInterval(beat, 2400);
+  }
+  function stopRing() { if (ringTimer) { clearInterval(ringTimer); ringTimer = null; } }
+
+  // Raise a notification + sound when a chat message arrives (unless it's mine,
+  // the conversation is muted, or I'm already looking at that channel focused).
+  function onIncomingChat(p) {
+    if (!p || !me || p.byId === me.id) return;
+    if (mutedChannels.has(p.channel)) return;
+    const viewingHere = currentPage === 'chat' && p.channel === chatChannel && document.hasFocus();
+    if (viewingHere) return;
+    playDing();
+    const where = (p.channel || '').startsWith('dm:') ? '' : ' in #' + p.channel;
+    notify('💬 ' + (p.byName || 'New message') + where, p.preview || 'Sent you a message', () => {
+      showPage('chat'); chatChannel = p.channel; lastMsgId = null;
+      $('chatMessages').innerHTML = ''; renderChannels(); updateChatHeader(); pollChat(true);
+    });
   }
 
   // The cloud host may return an HTML "waking up" page while its container
@@ -1327,6 +1379,7 @@
       socket = window.io(API, { auth: { token }, transports: ['websocket', 'polling'] });
       socket.on('chat', (p) => {
         if (currentPage === 'chat' && p && p.channel === chatChannel) pollChat(false);
+        onIncomingChat(p);
       });
       socket.on('activity', () => { refreshActivityCount(); });
       socket.on('meeting', () => { refreshMeetings(); });
@@ -1347,9 +1400,10 @@
     seenStart.add(p.meetingId); persistSeen();
     const isDm = (p.channel || '').startsWith('dm:');
     const label = isDm ? (p.byName + ' is calling you') : (p.byName + ' started a call in #' + p.channel);
-    const join = async () => { await refreshMeetings(); joinRoom(p.meetingId); };
+    const join = async () => { stopRing(); await refreshMeetings(); joinRoom(p.meetingId); };
     notify('📞 Incoming call', label + ' — click to join', join);
     toast('📞 ' + label);
+    startRing();
     callBanner(label, join);
   }
 
@@ -1377,7 +1431,7 @@
     clearTimeout(callBannerTimer);
     callBannerTimer = setTimeout(hideCallBanner, 30000);
   }
-  function hideCallBanner() { const el = $('callBanner'); if (el) el.style.display = 'none'; clearTimeout(callBannerTimer); }
+  function hideCallBanner() { stopRing(); const el = $('callBanner'); if (el) el.style.display = 'none'; clearTimeout(callBannerTimer); }
   $('btnLogout').addEventListener('click', () => logout());
 
   $('btnLogin').addEventListener('click', doLogin);
@@ -1385,6 +1439,8 @@
   async function doLogin() {
     $('loginError').textContent = '';
     $('btnLogin').disabled = true;
+    unlockAudio();  // this click is a user gesture — lets notification sounds play later
+    try { if (window.Notification && Notification.permission === 'default') Notification.requestPermission(); } catch {}
     const email = $('email').value.trim();
     const password = $('password').value;
     try {
@@ -1944,7 +2000,12 @@
       if (isLocal) v.muted = true;
       const l = document.createElement('div');
       l.className = 'vlabel';
-      tile.appendChild(v); tile.appendChild(l);
+      const fs = document.createElement('button');
+      fs.className = 'tile-fs'; fs.title = 'Full screen'; fs.innerHTML = '<span class="material-symbols-outlined">fullscreen</span>';
+      const goFs = () => { (tile.requestFullscreen ? tile.requestFullscreen() : Promise.reject()).catch(() => {}); };
+      fs.onclick = (e) => { e.stopPropagation(); goFs(); };
+      tile.ondblclick = goFs;   // double-click a screen/video to see it full screen
+      tile.appendChild(v); tile.appendChild(l); tile.appendChild(fs);
       $('videoGrid').appendChild(tile);
       // Video just appeared — open the dock so it's actually visible.
       $('roomCard')?.classList.add('expanded');
@@ -2126,6 +2187,17 @@
     const max = rc.classList.toggle('maximized');
     if (max) rc.classList.add('expanded');
     $('btnMaximize').querySelector('.material-symbols-outlined').textContent = max ? 'close_fullscreen' : 'open_in_full';
+  });
+  // True OS full screen for the whole call stage (best for sharing/seeing a screen).
+  $('btnFullscreen').addEventListener('click', () => {
+    const rc = $('roomCard');
+    if (document.fullscreenElement) { document.exitFullscreen?.(); return; }
+    rc.classList.add('expanded', 'maximized');
+    (rc.requestFullscreen ? rc.requestFullscreen() : Promise.reject()).catch(() => {});
+  });
+  document.addEventListener('fullscreenchange', () => {
+    const ic = $('btnFullscreen')?.querySelector('.material-symbols-outlined');
+    if (ic) ic.textContent = document.fullscreenElement ? 'fullscreen_exit' : 'fullscreen';
   });
 
   $('btnMute').addEventListener('click', () => {

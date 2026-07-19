@@ -49,10 +49,13 @@ export class ChatController {
     const msg = this.chat.post(req.user, name, channel, body.body, body.attachment);
     this.notify(req.user.sub, name, channel, msg.body || (msg.attachment ? '📎 ' + msg.attachment.name : ''));
     // Realtime push so open chats refresh instantly (polling stays as fallback).
+    // Include sender + a short preview so clients can raise a notification/sound.
+    const preview = msg.body ? msg.body.slice(0, 120) : (msg.attachment ? '📎 ' + msg.attachment.name : '');
+    const payload = { channel, byId: req.user.sub, byName: name, preview };
     if (isDmChannel(channel)) {
-      for (const id of dmParticipants(channel)) this.events.emitToUser(id, 'chat', { channel });
+      for (const id of dmParticipants(channel)) this.events.emitToUser(id, 'chat', payload);
     } else {
-      this.events.emitAll('chat', { channel });
+      this.events.emitAll('chat', payload);
     }
     return msg;
   }
