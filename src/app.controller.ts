@@ -1,6 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
+import { CHANGELOG, CURRENT_VERSION } from './changelog';
 
-export const APP_VERSION = '0.9.0';
+export const APP_VERSION = CURRENT_VERSION;
 
 @Controller()
 export class AppController {
@@ -12,5 +13,11 @@ export class AppController {
   @Get('version')
   version() {
     return { version: APP_VERSION };
+  }
+
+  /** Release notes shown in the app's "What's new" / Activity feed. */
+  @Get('changelog')
+  changelog() {
+    return { version: APP_VERSION, releases: CHANGELOG };
   }
 }

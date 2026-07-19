@@ -11,13 +11,18 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AppController = exports.APP_VERSION = void 0;
 const common_1 = require("@nestjs/common");
-exports.APP_VERSION = '0.9.0';
+const changelog_1 = require("./changelog");
+exports.APP_VERSION = changelog_1.CURRENT_VERSION;
 let AppController = class AppController {
     health() {
         return { status: 'ok', now: new Date().toISOString() };
     }
     version() {
         return { version: exports.APP_VERSION };
+    }
+    /** Release notes shown in the app's "What's new" / Activity feed. */
+    changelog() {
+        return { version: exports.APP_VERSION, releases: changelog_1.CHANGELOG };
     }
 };
 exports.AppController = AppController;
@@ -33,6 +38,12 @@ __decorate([
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", void 0)
 ], AppController.prototype, "version", null);
+__decorate([
+    (0, common_1.Get)('changelog'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", void 0)
+], AppController.prototype, "changelog", null);
 exports.AppController = AppController = __decorate([
     (0, common_1.Controller)()
 ], AppController);

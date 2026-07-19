@@ -199,6 +199,17 @@
   .act-item:last-child{border-bottom:none;}
   .act-item.unread{background:var(--pill-bg); border-radius:8px; padding-left:8px;}
   .act-item .when{font-size:11px; color:var(--muted); margin-top:2px;}
+  .wn-card{background:var(--blue-soft); border:1px solid var(--pill-border); border-radius:12px; padding:11px 12px; margin-bottom:10px;}
+  .wn-card.wn-old{background:var(--surface-2); border-color:var(--rule);}
+  .wn-head{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+  .wn-badge{font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.4px; color:#fff; background:var(--btn-blue); border-radius:999px; padding:2px 8px;}
+  .wn-ver{font-weight:800; color:var(--ink); font-size:13px;}
+  .wn-date{font-size:11px; color:var(--muted); margin-left:auto;}
+  .wn-title{font-weight:700; color:var(--ink); font-size:13.5px; margin:6px 0 6px;}
+  .wn-note{display:flex; gap:7px; align-items:flex-start; font-size:12.5px; color:var(--ink); padding:2px 0; line-height:1.4;}
+  .wn-note>span:first-child{flex:0 0 auto;}
+  .wn-history{font-size:12px;}
+  #wnHistoryBox{margin-top:8px;}
   .pill{
     padding:5px 10px; font-size:11px; border-radius:999px; font-weight:600;
     background:var(--pill-bg); color:var(--blue); text-transform:capitalize;
@@ -1345,6 +1356,43 @@
     connectSocket();
     refreshUsers();
     refreshMeetings();
+    loadChangelog();
+  }
+
+  // ---------- "What's new" (release notes in the Activity feed) ----------
+  let changelogData = null;
+  let newVersionPending = false;
+  const CHANGE_ICON = { new: '✨', improve: '⬆️', fix: '🔧' };
+  async function loadChangelog() {
+    try {
+      changelogData = await api('/changelog');
+      const latest = changelogData.releases && changelogData.releases[0];
+      if (latest && localStorage.getItem('ppa_seen_version') !== latest.version) {
+        newVersionPending = true;
+        refreshActivityCount();
+        notify('🎉 Updated to v' + latest.version, latest.title + " — open Activity to see what's new", () => $('btnActivity').click());
+      }
+    } catch {}
+  }
+  function renderWhatsNew(rel) {
+    const notes = (rel.notes || []).map(n =>
+      '<div class="wn-note wn-' + n.kind + '"><span>' + (CHANGE_ICON[n.kind] || '•') + '</span><span>' + esc(n.text) + '</span></div>'
+    ).join('');
+    return '<div class="wn-card">'
+      + '<div class="wn-head"><span class="wn-badge">What\'s new</span>'
+      + '<span class="wn-ver">v' + esc(rel.version) + '</span><span class="wn-date">' + esc(rel.date) + '</span></div>'
+      + '<div class="wn-title">' + esc(rel.title) + '</div>' + notes
+      + '<span class="link wn-history" id="wnHistory" style="text-align:left;margin-top:8px;">Version history</span>'
+      + '</div>';
+  }
+  function renderHistory() {
+    const rels = (changelogData && changelogData.releases) || [];
+    return rels.slice(1).map(rel =>
+      '<div class="wn-card wn-old"><div class="wn-head"><span class="wn-ver">v' + esc(rel.version) + '</span>'
+      + '<span class="wn-date">' + esc(rel.date) + '</span></div><div class="wn-title">' + esc(rel.title) + '</div>'
+      + (rel.notes || []).map(n => '<div class="wn-note wn-' + n.kind + '"><span>' + (CHANGE_ICON[n.kind] || '•') + '</span><span>' + esc(n.text) + '</span></div>').join('')
+      + '</div>'
+    ).join('');
   }
 
   function logout(msg) {
@@ -2533,21 +2581,39 @@
     if (!me) return;
     try {
       const d = await api('/activity');
-      const n = d.unread || 0;
+      const n = (d.unread || 0) + (newVersionPending ? 1 : 0);
       const badge = $('activityCount');
       badge.textContent = n > 9 ? '9+' : n;
       badge.style.display = n > 0 ? 'flex' : 'none';
     } catch {}
   }
   async function openActivity() {
+    let html = '';
+    const latest = changelogData && changelogData.releases && changelogData.releases[0];
+    if (latest) {
+      html += renderWhatsNew(latest);
+      if (localStorage.getItem('ppa_seen_version') !== latest.version) {
+        localStorage.setItem('ppa_seen_version', latest.version);
+        newVersionPending = false;
+        setTimeout(refreshActivityCount, 100);
+      }
+    }
     try {
       const d = await api('/activity');
-      $('activityList').innerHTML = (d.items && d.items.length) ? d.items.map(a =>
+      const items = (d.items && d.items.length) ? d.items.map(a =>
         '<div class="act-item' + (a.read ? '' : ' unread') + '">'
         + (actIcon[a.kind] || '•') + ' ' + esc(a.text)
         + '<div class="when">' + fmtClock(new Date(a.at).toISOString()) + '</div></div>'
-      ).join('') : '<span class="muted">Nothing new.</span>';
-    } catch {}
+      ).join('') : (latest ? '' : '<span class="muted">Nothing new.</span>');
+      $('activityList').innerHTML = html + items;
+    } catch { $('activityList').innerHTML = html; }
+    const hist = $('wnHistory');
+    if (hist) hist.addEventListener('click', () => {
+      if ($('wnHistoryBox')) { $('wnHistoryBox').remove(); hist.textContent = 'Version history'; return; }
+      const box = document.createElement('div');
+      box.id = 'wnHistoryBox'; box.innerHTML = renderHistory();
+      hist.parentElement.appendChild(box); hist.textContent = 'Hide history';
+    });
   }
   $('btnActivityRead').addEventListener('click', async () => {
     try { await api('/activity/read', { method: 'POST', body: '{}' }); await openActivity(); await refreshActivityCount(); } catch {}
