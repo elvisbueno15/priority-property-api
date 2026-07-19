@@ -17,6 +17,17 @@ export interface ReleaseNote {
 
 export const CHANGELOG: ReleaseNote[] = [
   {
+    version: '1.0.1',
+    date: '2026-07-19',
+    title: 'Answer calls in their own window + voice messages',
+    notes: [
+      { kind: 'new', text: 'Incoming calls now have a clear green Answer button (not just Dismiss)' },
+      { kind: 'new', text: 'Calls open in their own resizable window you can maximize to any monitor — perfect for screen sharing and video' },
+      { kind: 'new', text: 'Record and send voice messages in chat — tap the mic, then send' },
+      { kind: 'improve', text: 'A shared screen or camera now fills the whole call window instead of a small box' },
+    ],
+  },
+  {
     version: '1.0.0',
     date: '2026-07-19',
     title: 'Auto-updating app & release notes',

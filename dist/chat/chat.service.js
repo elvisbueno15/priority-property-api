@@ -120,7 +120,7 @@ let ChatService = class ChatService {
     }
     /** Store an uploaded file (base64) and return its public metadata. */
     saveAttachment(by, name, mime, dataUrlOrB64) {
-        const clean = String(dataUrlOrB64 || '').replace(/^data:[^;]+;base64,/, '');
+        const clean = String(dataUrlOrB64 || '').replace(/^data:[^,]*;base64,/, '');
         if (!clean)
             throw new common_1.BadRequestException('empty_file');
         if (!ALLOWED_MIME.test(mime || ''))

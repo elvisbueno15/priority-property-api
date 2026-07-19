@@ -558,6 +558,39 @@
   .call-dock.maximized .call-dock-actions{padding:12px 16px;}
   .call-dock.maximized .call-dock-actions .chip{padding:9px 14px; font-size:14px;}
 
+  /* ---- Dedicated CALL WINDOW (Electron popup): the whole window IS the stage ---- */
+  html.call-window, html.call-window body{height:100%; background:#0d0f13; overflow:hidden;}
+  /* #roomCard lives INSIDE #app, so we must NOT hide #app — hide the chrome only. */
+  html.call-window #splash, html.call-window #login,
+  html.call-window .topbar, html.call-window .activity-panel,
+  html.call-window .main{display:none !important;}
+  html.call-window #app{display:block !important;}
+  html.call-window .call-dock{
+    position:fixed; inset:0; width:auto !important; height:auto; max-width:none;
+    border:0; border-radius:0; box-shadow:none; animation:none; display:flex; flex-direction:column;
+  }
+  html.call-window .call-dock-body{display:flex !important; flex:1 1 auto; min-height:0; overflow:auto; flex-direction:column;}
+  html.call-window .call-dock .video-grid{
+    grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); grid-auto-rows:1fr;
+    max-height:none !important; flex:1 1 auto; margin-top:12px;
+  }
+  html.call-window .call-dock .video-tile{aspect-ratio:auto; min-height:240px;}
+  html.call-window .call-dock-actions .chip{padding:9px 14px; font-size:14px;}
+  html.call-window #btnExpand, html.call-window #btnMaximize{display:none !important;}
+
+  /* ---- Voice messages ---- */
+  .voice-bar{display:none; align-items:center; gap:10px; flex:1; padding:2px 4px;}
+  .composer2.recording #chatInput,
+  .composer2.recording #btnAttach,
+  .composer2.recording #btnVoice,
+  .composer2.recording #btnSend{display:none;}
+  .composer2.recording .voice-bar{display:flex;}
+  .voice-bar .rec-dot{width:10px; height:10px; border-radius:50%; background:var(--danger); animation:callpulse 1.2s infinite;}
+  .voice-bar .rec-time{font-variant-numeric:tabular-nums; font-weight:700; color:var(--ink);}
+  .voice-bar .rec-label{color:var(--muted); font-size:12px;}
+  .voice-bar .spacer{flex:1;}
+  .chat-att-audio{display:block; margin-top:6px; width:260px; max-width:100%; height:40px;}
+
   /* Responsive: keep everything clean in narrow windows / the web version */
   @media (max-width: 940px){
     .grid.cols-4{grid-template-columns:repeat(2,1fr);}
@@ -809,8 +842,17 @@
             <div class="composer2">
               <button class="cicon" id="btnAttach" title="Attach a photo, PDF or file"><span class="material-symbols-outlined">attach_file</span></button>
               <input id="fileInput" type="file" accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.txt,.zip" style="display:none;" />
+              <button class="cicon" id="btnVoice" title="Record a voice message"><span class="material-symbols-outlined">mic</span></button>
               <input id="chatInput" placeholder="Type a message..." maxlength="4000" />
               <button class="cicon send" id="btnSend" title="Send message"><span class="material-symbols-outlined fill">send</span></button>
+              <div class="voice-bar" id="voiceBar">
+                <span class="rec-dot"></span>
+                <span class="rec-time" id="voiceTime">0:00</span>
+                <span class="rec-label">Recording…</span>
+                <span class="spacer"></span>
+                <button class="cicon" id="voiceCancel" title="Cancel"><span class="material-symbols-outlined">delete</span></button>
+                <button class="cicon send" id="voiceStop" title="Send voice message"><span class="material-symbols-outlined fill">send</span></button>
+              </div>
             </div>
           </div>
         </div>
@@ -1059,6 +1101,14 @@
   let meetingsPrimed = false;
   let currentRoom = null;
   const timers = {};
+
+  // When the desktop shell opens the call in its own window it appends
+  // #call=<meetingId>[&video=1]; that boots a stripped "call-only" view.
+  const CALL_MODE = /(?:^|[#&])call=/.test(location.hash);
+  function callParam(name) {
+    const m = location.hash.match(new RegExp('[#&]' + name + '=([^&]+)'));
+    return m ? decodeURIComponent(m[1]) : null;
+  }
 
   // ---------- Helpers ----------
   function toast(msg) {
@@ -1398,6 +1448,9 @@
   function logout(msg) {
     stopLoops();
     if (currentRoom) leaveRoom();
+    // On desktop the live call runs in its own window — close it too, otherwise
+    // the user stays in the call after signing out here.
+    if (!CALL_MODE && window.ppa && window.ppa.closeCall) { try { window.ppa.closeCall(); } catch {} }
     hideCallBanner();
     try { socket?.disconnect(); } catch {}
     socket = null;
@@ -1448,11 +1501,11 @@
     seenStart.add(p.meetingId); persistSeen();
     const isDm = (p.channel || '').startsWith('dm:');
     const label = isDm ? (p.byName + ' is calling you') : (p.byName + ' started a call in #' + p.channel);
-    const join = async () => { stopRing(); await refreshMeetings(); joinRoom(p.meetingId); };
-    notify('📞 Incoming call', label + ' — click to join', join);
+    const answer = async () => { hideCallBanner(); await enterCall(p.meetingId, false); };
+    notify('📞 Incoming call', label + ' — click to answer', answer);
     toast('📞 ' + label);
     startRing();
-    callBanner(label, join);
+    callBanner(label, answer);
   }
 
   // On-screen ring banner with Join / Dismiss (in case notifications are off).
@@ -1467,12 +1520,16 @@
         + 'display:flex;gap:12px;align-items:center;font-weight:600;max-width:90vw;';
       document.body.appendChild(el);
     }
-    el.innerHTML = '<span>📞 ' + esc(label) + '</span>';
+    el.innerHTML = '<span style="margin-right:4px;">📞 ' + esc(label) + '</span>';
     const join = document.createElement('button');
-    join.className = 'chip green'; join.textContent = 'Join';
+    join.className = 'chip';
+    join.textContent = '📞 Answer';
+    join.style.cssText = 'background:#1a7f37; color:#fff; font-weight:800; padding:9px 18px; border:none; cursor:pointer;';
     join.onclick = () => { hideCallBanner(); onJoin(); };
     const no = document.createElement('button');
-    no.className = 'chip'; no.textContent = 'Dismiss';
+    no.className = 'chip';
+    no.textContent = 'Decline';
+    no.style.cssText = 'background:rgba(255,255,255,.20); color:#fff; font-weight:700; padding:9px 16px; border:none; cursor:pointer;';
     no.onclick = hideCallBanner;
     el.appendChild(join); el.appendChild(no);
     el.style.display = 'flex';
@@ -1755,6 +1812,75 @@
     } catch (e) { toast(e.message || 'Upload failed'); }
     finally { $('btnAttach').disabled = false; }
   });
+
+  // ---------- Voice messages (record → upload as an audio attachment) ----------
+  let mediaRec = null, voiceChunks = [], voiceTimer = null, voiceStart = 0, voiceStream = null, voiceCancelled = false, voiceStarting = false;
+  function composerEl() { return document.querySelector('.composer2'); }
+  function stopVoiceStream() { if (voiceStream) { voiceStream.getTracks().forEach(t => t.stop()); voiceStream = null; } }
+  async function startVoice() {
+    // Synchronous guard BEFORE the await, so a double-click during the mic
+    // permission prompt can't launch two recorders (which would leak a live mic).
+    if (mediaRec || voiceStarting) return;
+    if (!window.MediaRecorder) { toast('Voice messages are not supported here.'); return; }
+    voiceStarting = true;
+    let stream;
+    try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+    catch { toast('No microphone available.'); voiceStarting = false; return; }
+    voiceStream = stream; voiceChunks = []; voiceCancelled = false;
+    let mime = '';
+    for (const t of ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4']) {
+      if (MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) { mime = t; break; }
+    }
+    try { mediaRec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream); }
+    catch { toast('Recording not supported here.'); stopVoiceStream(); voiceStarting = false; return; }
+    mediaRec.ondataavailable = (e) => { if (e.data && e.data.size) voiceChunks.push(e.data); };
+    mediaRec.onstop = onVoiceStopped;
+    mediaRec.start();
+    composerEl()?.classList.add('recording');
+    voiceStart = Date.now();
+    $('voiceTime').textContent = '0:00';
+    voiceTimer = setInterval(() => {
+      const s = Math.floor((Date.now() - voiceStart) / 1000);
+      $('voiceTime').textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+      if (s >= 300) stopVoice(false);   // 5-minute safety cap
+    }, 250);
+    voiceStarting = false;
+  }
+  function stopVoice(cancel) {
+    if (!mediaRec) return;
+    voiceCancelled = !!cancel;
+    clearInterval(voiceTimer); voiceTimer = null;
+    composerEl()?.classList.remove('recording');
+    try { mediaRec.stop(); } catch {}   // fires onstop
+  }
+  async function onVoiceStopped() {
+    const rec = mediaRec; mediaRec = null;
+    stopVoiceStream();
+    const durMs = Date.now() - voiceStart;
+    if (voiceCancelled) { voiceChunks = []; return; }
+    if (durMs < 700 || !voiceChunks.length) { voiceChunks = []; toast('Recording too short.'); return; }
+    const blobType = (rec && rec.mimeType) || voiceChunks[0].type || 'audio/webm';
+    const blob = new Blob(voiceChunks, { type: blobType });
+    voiceChunks = [];
+    if (blob.size > 8 * 1024 * 1024) { toast('Voice message too large (max 8 MB).'); return; }
+    const mime = blobType.split(';')[0] || 'audio/webm';
+    const ext = mime.indexOf('ogg') >= 0 ? 'ogg' : (mime.indexOf('mp4') >= 0 ? 'm4a' : 'webm');
+    toast('Sending voice message…');
+    try {
+      const dataUrl = await new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload = () => res(r.result); r.onerror = () => rej(new Error('Could not read recording'));
+        r.readAsDataURL(blob);
+      });
+      const meta = await api('/chat/upload', { method: 'POST', body: JSON.stringify({ name: 'voice-message.' + ext, mime, data: dataUrl }) });
+      await api('/chat/messages', { method: 'POST', body: JSON.stringify({ channel: chatChannel, body: '', attachment: meta }) });
+      await pollChat(false);
+    } catch (e) { toast(e.message || 'Could not send voice message.'); }
+  }
+  $('btnVoice').addEventListener('click', () => { if (mediaRec) stopVoice(false); else startVoice(); });
+  $('voiceStop').addEventListener('click', () => stopVoice(false));
+  $('voiceCancel').addEventListener('click', () => stopVoice(true));
+
   // Chat header "more" menu (three dots)
   $('btnChatMore').addEventListener('click', (e) => { e.stopPropagation(); $('chatMoreMenu').classList.toggle('on'); });
   $('chatMoreMenu').addEventListener('click', (e) => e.stopPropagation());
@@ -1789,8 +1915,7 @@
         body: JSON.stringify({ channel: chatChannel, title, toUserId }),
       });
       if (!meetingsCache.find(x => x.id === meeting.id)) meetingsCache.push(meeting);
-      await joinRoom(meeting.id);
-      if (withVideo === true) setTimeout(() => { if (!rtc.camStream) $('btnCamera')?.click(); }, 400);
+      await enterCall(meeting.id, withVideo === true);
       toast(isDm ? 'Calling…' : 'Call started — your team is being notified.');
     } catch (e) { toast(e.message); }
     finally { $('btnCall').disabled = false; $('btnVideoCall').disabled = false; }
@@ -1817,6 +1942,9 @@
     const url = API + '/chat/attachment/' + encodeURIComponent(a.id);
     if ((a.mime || '').startsWith('image/')) {
       return '<img class="chat-att-img" src="' + url + '" alt="' + esc(a.name) + '" title="' + esc(a.name) + '" />';
+    }
+    if ((a.mime || '').startsWith('audio/')) {
+      return '<audio class="chat-att-audio" controls preload="none" src="' + url + '"></audio>';
     }
     const icon = (a.mime || '') === 'application/pdf' ? 'picture_as_pdf' : 'description';
     return '<a class="chat-att-file" href="' + url + '" target="_blank" rel="noopener" download="' + esc(a.name) + '">'
@@ -1929,7 +2057,7 @@
         + '</div>';
     }).join('');
     document.querySelectorAll('#meetingList [data-join]').forEach(b =>
-      b.addEventListener('click', () => joinRoom(b.getAttribute('data-join'))));
+      b.addEventListener('click', () => enterCall(b.getAttribute('data-join'), false)));
     document.querySelectorAll('#meetingList [data-del]').forEach(b =>
       b.addEventListener('click', async () => {
         try { await api('/meetings/' + b.getAttribute('data-del'), { method: 'DELETE' }); refreshMeetings(); }
@@ -1958,7 +2086,7 @@
       }
       if (!seenStart.has(m.id) && m.createdBy !== me.id && now >= start - 10 * 60000 && now < end) {
         seenStart.add(m.id);
-        notify('Meeting ready to join', m.title + ' starts at ' + fmtClock(m.startsAt) + '. Click to join.', () => { showPage('meetings'); joinRoom(m.id); });
+        notify('Meeting ready to join', m.title + ' starts at ' + fmtClock(m.startsAt) + '. Click to join.', () => { showPage('meetings'); enterCall(m.id, false); });
       }
     }
     meetingsPrimed = true;
@@ -2192,9 +2320,30 @@
     } catch {}
   }
 
+  // Route into a call. On the desktop app we pop it into its own resizable
+  // window (so it can fill any monitor); on the web we dock it in-page. The
+  // dedicated call window itself always docks — it already IS that window.
+  let joiningRoom = null;
+  async function enterCall(meetingId, withVideo) {
+    if (!meetingId) return;
+    if (!CALL_MODE && window.ppa && window.ppa.openCall) {
+      try { await window.ppa.openCall(meetingId, !!withVideo); return; } catch {}
+    }
+    // Synchronous re-entrancy guard: two Answer affordances (banner + OS
+    // notification) and double-clicks must not launch two joins.
+    if (currentRoom === meetingId || joiningRoom === meetingId) return;
+    joiningRoom = meetingId;
+    try {
+      await refreshMeetings();
+      const ok = await joinRoom(meetingId);
+      if (!ok) { toast('Could not join — the call may have ended.'); return; }
+      if (withVideo === true) setTimeout(() => { if (!rtc.camStream) $('btnCamera')?.click(); }, 500);
+    } finally { joiningRoom = null; }
+  }
+
   async function joinRoom(meetingId) {
     const m = meetingsCache.find(x => x.id === meetingId);
-    if (!m) return;
+    if (!m) return false;
     if (currentRoom && currentRoom !== meetingId) await leaveRoom();
     currentRoom = meetingId;
     $('roomCard').style.display = 'flex';
@@ -2207,6 +2356,7 @@
     timers.room = setInterval(roomPing, 10000);
     timers.signals = setInterval(pollSignals, 1500);
     renderMeetings();
+    return true;
   }
 
   async function leaveRoom() {
@@ -2228,7 +2378,11 @@
     $('btnMaximize').querySelector('.material-symbols-outlined').textContent = 'open_in_full';
     renderMeetings();
   }
-  $('btnLeaveRoom').addEventListener('click', leaveRoom);
+  $('btnLeaveRoom').addEventListener('click', async () => {
+    await leaveRoom();
+    // In the dedicated call window, hanging up closes the window itself.
+    if (CALL_MODE) { if (window.ppa && window.ppa.closeCall) window.ppa.closeCall(); else window.close(); }
+  });
   $('btnExpand').addEventListener('click', () => $('roomCard').classList.toggle('expanded'));
   $('btnMaximize').addEventListener('click', () => {
     const rc = $('roomCard');
@@ -2664,7 +2818,52 @@
   splashVideo?.addEventListener('ended', hideSplash);
   splashVideo?.addEventListener('error', () => setTimeout(hideSplash, 300));
   setTimeout(hideSplash, 6000); // safety net if autoplay is blocked
+  // ---- Dedicated call window: minimal sign-in, join one room, show the stage ----
+  function callWindowMessage(msg) {
+    const rc = $('roomCard');
+    if (rc) {
+      rc.style.display = 'flex';
+      rc.classList.add('expanded');
+      $('roomTitle').textContent = 'Call';
+      $('roomHint').textContent = msg;
+      $('callDockBody').style.display = 'block';
+    }
+    toast(msg);
+  }
+  async function bootCallWindow() {
+    document.documentElement.classList.add('call-window');
+    // #roomCard lives inside #app, so #app must be the visible screen (the CSS
+    // then hides the topbar/sidebar/pages, leaving only the full-window call).
+    show('app');
+    hideSplash();
+    unlockAudio();
+    const meetingId = callParam('call');
+    const withVideo = callParam('video') === '1';
+    // localStorage (token + saved creds) is shared with the main window.
+    if (!token && !(await tryAutoRelogin())) { callWindowMessage('Please sign in on the main window first.'); return; }
+    try { me = await api('/users/me'); }
+    catch { if (await tryAutoRelogin()) { try { me = await api('/users/me'); } catch {} } }
+    if (!me) { callWindowMessage('Could not sign in for the call.'); return; }
+    try { await refreshMeetings(); } catch {}
+    if (!meetingsCache.find(x => x.id === meetingId)) { callWindowMessage('This call is no longer available.'); return; }
+    await joinRoom(meetingId);
+    if (withVideo) setTimeout(() => { if (!rtc.camStream) $('btnCamera')?.click(); }, 600);
+  }
+  // When the call window is closed with the X, free the room presence too.
+  window.addEventListener('beforeunload', () => {
+    if (CALL_MODE && currentRoom && token) {
+      try {
+        fetch(API + '/meetings/' + currentRoom + '/leave', {
+          method: 'POST', keepalive: true,
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: '{}',
+        });
+      } catch {}
+    }
+  });
+
   (async function boot() {
+    if (CALL_MODE) { await bootCallWindow(); return; }
     fillServerInputs();
     const creds = savedCreds();
     if (creds) { $('email').value = creds.email; $('password').value = creds.password; $('rememberMe').checked = true; }

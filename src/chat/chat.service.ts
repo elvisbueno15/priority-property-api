@@ -97,7 +97,11 @@ export class ChatService {
 
   /** Store an uploaded file (base64) and return its public metadata. */
   saveAttachment(by: string, name: string, mime: string, dataUrlOrB64: string): AttachmentMeta {
-    const clean = String(dataUrlOrB64 || '').replace(/^data:[^;]+;base64,/, '');
+    // Strip the data-URL prefix. Use [^,]* so a media type that carries its own
+    // ';' parameter (e.g. audio/webm;codecs=opus from MediaRecorder) is handled —
+    // a [^;]+ pattern would stop at the first ';' and fail to strip, corrupting
+    // every voice message.
+    const clean = String(dataUrlOrB64 || '').replace(/^data:[^,]*;base64,/, '');
     if (!clean) throw new BadRequestException('empty_file');
     if (!ALLOWED_MIME.test(mime || '')) throw new BadRequestException('unsupported_file_type');
     const size = Math.floor((clean.length * 3) / 4);
