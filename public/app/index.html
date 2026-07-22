@@ -603,15 +603,6 @@
 <body>
 
 <!-- SPLASH -->
-<div id="splash">
-  <video id="splashVideo" src="src/renderer/assets/startup.mp4" autoplay muted playsinline></video>
-  <div class="brand-lockup">
-    <div class="pri">Priority</div>
-    <div class="sec">Team Connect</div>
-    <div class="slogan">Acquiring Value, Investing Wisely</div>
-  </div>
-</div>
-
 <!-- LOGIN -->
 <div id="login" class="screen active">
   <div class="card auth-card">
@@ -2813,11 +2804,9 @@
   }
 
   // ---------- Boot ----------
-  function hideSplash() { $('splash').classList.add('gone'); }
-  const splashVideo = $('splashVideo');
-  splashVideo?.addEventListener('ended', hideSplash);
-  splashVideo?.addEventListener('error', () => setTimeout(hideSplash, 300));
-  setTimeout(hideSplash, 6000); // safety net if autoplay is blocked
+  // Startup intro removed — the app opens straight to login. hideSplash() is
+  // kept as a safe no-op because other code paths still call it.
+  function hideSplash() { $('splash')?.classList.add('gone'); }
   // ---- Dedicated call window: minimal sign-in, join one room, show the stage ----
   function callWindowMessage(msg) {
     const rc = $('roomCard');
