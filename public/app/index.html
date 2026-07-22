@@ -480,17 +480,60 @@
   .shot-cell img{width:100%; border-radius:8px; border:1px solid var(--rule-strong); cursor:pointer; display:block;}
   .shot-when{font-size:11px; color:var(--muted); margin-top:4px; text-align:center;}
 
+  /* ---- Animated startup splash (pure CSS brand reveal — no video) ---- */
   #splash{
-    position:fixed; inset:0; z-index:9999; background:#bdbdbd;
-    display:flex; align-items:center; justify-content:center; flex-direction:column;
-    transition:opacity .4s;
+    position:fixed; inset:0; z-index:100000;
+    display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(150deg, #002d5a 0%, #00408c 58%, #0a5cb8 100%);
+    --sp-ease:cubic-bezier(0.23,1,0.32,1);
+    opacity:1;
+    transition:opacity .42s var(--sp-ease), transform .42s var(--sp-ease), filter .42s ease;
   }
-  #splash.gone{opacity:0; pointer-events:none;}
-  #splash video{width:60%; max-width:520px; max-height:55vh; object-fit:contain;}
-  #splash .brand-lockup{text-align:center; margin-top:6px;}
-  #splash .brand-lockup .pri{font-size:30px; color:#00284d;}
-  #splash .brand-lockup .sec{font-size:14px;}
-  #splash .brand-lockup .slogan{font-size:13px;}
+  #splash.gone{opacity:0; transform:scale(1.03); filter:blur(6px); pointer-events:none;}
+  .splash-stage{display:flex; flex-direction:column; align-items:center; text-align:center; padding:0 24px;}
+  .splash-logo-wrap{position:relative; width:96px; height:96px; display:flex; align-items:center; justify-content:center; margin-bottom:20px;}
+  .splash-logo{
+    width:96px; height:96px; object-fit:contain; display:block;
+    filter:drop-shadow(0 14px 32px rgba(0,0,0,.38));
+    opacity:0; transform:scale(0.9);
+    animation:sp-logo .55s var(--sp-ease) .06s forwards;
+  }
+  .splash-ring{
+    position:absolute; inset:-10px; border-radius:50%; border:2px solid rgba(255,255,255,.5);
+    opacity:0; transform:scale(0.7);
+    animation:sp-ring .95s var(--sp-ease) .08s forwards;
+  }
+  .splash-word .pri, .splash-word .sec{opacity:0; transform:translateY(10px);}
+  .splash-word .pri{
+    font-weight:800; font-size:34px; letter-spacing:.5px; color:#fff; line-height:1.05;
+    animation:sp-rise .5s var(--sp-ease) .26s forwards;
+  }
+  .splash-word .sec{
+    font-weight:600; font-size:14px; letter-spacing:4px; text-transform:uppercase; color:#bcd7f5; margin-top:3px;
+    animation:sp-rise .5s var(--sp-ease) .34s forwards;
+  }
+  .splash-line{
+    width:120px; height:2px; margin:16px auto 0; border-radius:2px; transform-origin:center;
+    background:linear-gradient(90deg, transparent, rgba(255,255,255,.9), transparent);
+    opacity:0; transform:scaleX(0);
+    animation:sp-line .55s var(--sp-ease) .48s forwards;
+  }
+  .splash-slogan{
+    margin-top:14px; font-style:italic; font-size:13px; color:rgba(255,255,255,.82);
+    opacity:0; transform:translateY(8px);
+    animation:sp-rise .5s var(--sp-ease) .62s forwards;
+  }
+  @keyframes sp-logo{to{opacity:1; transform:scale(1);}}
+  @keyframes sp-ring{35%{opacity:.65;} to{opacity:0; transform:scale(1.55);}}
+  @keyframes sp-rise{to{opacity:1; transform:translateY(0);}}
+  @keyframes sp-line{to{opacity:1; transform:scaleX(1);}}
+  @media (prefers-reduced-motion: reduce){
+    .splash-logo,.splash-word .pri,.splash-word .sec,.splash-line,.splash-slogan{
+      animation:sp-fade .3s ease forwards; transform:none;
+    }
+    .splash-ring{display:none;}
+    @keyframes sp-fade{from{opacity:0;} to{opacity:1;}}
+  }
 
   #toast{
     position:fixed; bottom:18px; right:18px; z-index:900; display:none;
@@ -603,6 +646,21 @@
 <body>
 
 <!-- SPLASH -->
+<div id="splash">
+  <div class="splash-stage">
+    <div class="splash-logo-wrap">
+      <span class="splash-ring"></span>
+      <img class="splash-logo" src="src/renderer/assets/icon.png" alt="" />
+    </div>
+    <div class="splash-word">
+      <div class="pri">Priority</div>
+      <div class="sec">Team Connect</div>
+    </div>
+    <div class="splash-line"></div>
+    <div class="splash-slogan">Acquiring Value, Investing Wisely</div>
+  </div>
+</div>
+
 <!-- LOGIN -->
 <div id="login" class="screen active">
   <div class="card auth-card">
@@ -2804,9 +2862,21 @@
   }
 
   // ---------- Boot ----------
-  // Startup intro removed — the app opens straight to login. hideSplash() is
-  // kept as a safe no-op because other code paths still call it.
+  // Animated startup splash: a brief brand reveal, then it fades to the app.
+  // Skippable (click / any key) and shortened when reduced-motion is on. The
+  // dedicated call window never shows it.
   function hideSplash() { $('splash')?.classList.add('gone'); }
+  (function initSplash() {
+    const s = $('splash');
+    if (!s || CALL_MODE) { hideSplash(); return; }
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let done = false;
+    const finish = () => { if (done) return; done = true; hideSplash(); };
+    const t = setTimeout(finish, reduce ? 450 : 1550);
+    const skip = () => { clearTimeout(t); finish(); };
+    s.addEventListener('click', skip);
+    window.addEventListener('keydown', skip, { once: true });
+  })();
   // ---- Dedicated call window: minimal sign-in, join one room, show the stage ----
   function callWindowMessage(msg) {
     const rc = $('roomCard');
