@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Download Priority Team Connect for Windows</title>
+<meta name="description" content="Download Priority Team Connect for Windows — installs in seconds, no admin needed, and updates itself automatically." />
+<link rel="icon" type="image/png" href="/logo.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --navy:#002D5A; --blue:#00408C; --blue-2:#0a5cb8; --blue-light:#EEF3FA;
+    --ink:#1a2433; --muted:#5b6b7f; --white:#fff; --rule:rgba(255,255,255,.14);
+    --ease:cubic-bezier(0.23,1,0.32,1);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{scroll-behavior:smooth;}
+  body{
+    font-family:"Montserrat","Segoe UI",Roboto,Helvetica,Arial,sans-serif; color:#eaf1fb; line-height:1.6;
+    min-height:100vh; overflow-x:hidden;
+    background:radial-gradient(1200px 700px at 50% -10%, #0a5cb8 0%, #00408c 34%, #002d5a 72%, #001b38 100%);
+  }
+  .slab{font-family:Rockwell,"Roboto Slab",Georgia,"Times New Roman",serif;}
+  a{color:inherit;}
+
+  .h-rise{opacity:0; transform:translateY(16px); animation:hrise .8s var(--ease) forwards;}
+  @keyframes hrise{to{opacity:1; transform:none;}}
+  .reveal{opacity:0; transform:translateY(22px); transition:opacity .7s var(--ease), transform .7s var(--ease);}
+  .reveal.in{opacity:1; transform:none;}
+
+  .topbar{max-width:1000px; margin:0 auto; padding:18px 24px; display:flex; align-items:center; justify-content:space-between;}
+  .brand{display:flex; align-items:center; gap:11px; text-decoration:none;}
+  .brand img{height:30px; width:30px;}
+  .brand .t1{font-weight:800; font-size:15px; color:#fff; letter-spacing:.5px; text-transform:uppercase; line-height:1;}
+  .brand .t2{font-size:9.5px; font-weight:600; letter-spacing:2px; color:#9dc4ef; text-transform:uppercase;}
+  .back{color:#bcd7f5; text-decoration:none; font-weight:600; font-size:14px; transition:color .16s var(--ease);}
+  .back:hover{color:#fff;}
+
+  .wrap{max-width:760px; margin:0 auto; padding:26px 24px 80px; text-align:center;}
+
+  /* Download card */
+  .dl-card{
+    background:rgba(255,255,255,.06); border:1px solid var(--rule); border-radius:24px;
+    padding:44px 36px 38px; backdrop-filter:blur(8px); box-shadow:0 30px 70px rgba(0,0,0,.38);
+    margin-top:14px;
+  }
+  .app-icon{width:104px; height:104px; margin:0 auto 10px; filter:drop-shadow(0 16px 34px rgba(0,0,0,.4)); animation-delay:.03s;}
+  .dl-card h1{font-size:30px; color:#fff; letter-spacing:.5px; line-height:1.15; animation-delay:.12s;}
+  .dl-card .ver{display:inline-block; margin-top:12px; font-size:12px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:#bcd7f5; background:rgba(255,255,255,.08); border:1px solid var(--rule); padding:5px 13px; border-radius:999px; animation-delay:.2s;}
+
+  .dl-btn{
+    display:inline-flex; align-items:center; gap:14px; margin-top:26px;
+    background:#fff; color:var(--navy); font-weight:800; font-size:18px; text-decoration:none;
+    padding:18px 38px; border-radius:14px; box-shadow:0 16px 34px rgba(0,0,0,.34);
+    transition:transform .16s var(--ease), box-shadow .16s var(--ease); animation-delay:.3s;
+  }
+  .dl-btn:hover{transform:translateY(-3px); box-shadow:0 24px 46px rgba(0,0,0,.42);}
+  .dl-btn:active{transform:translateY(0) scale(0.98);}
+  .dl-btn .arrow{display:inline-flex; animation:bob 1.8s var(--ease) infinite;}
+  @keyframes bob{0%,100%{transform:translateY(-2px);}50%{transform:translateY(3px);}}
+  .dl-note{margin-top:16px; font-size:13px; color:#9dc4ef; animation-delay:.4s;}
+  .dl-web{margin-top:8px; font-size:13.5px; animation-delay:.46s;}
+  .dl-web a{color:#dCe9fb; text-decoration:underline; font-weight:600;}
+
+  /* Fact chips */
+  .facts{display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-top:26px;}
+  .fact{display:flex; align-items:center; gap:8px; background:rgba(255,255,255,.06); border:1px solid var(--rule); border-radius:999px; padding:9px 15px; font-size:13px; color:#dCe9fb;}
+  .fact b{color:#fff; font-weight:700;}
+
+  /* Steps */
+  .steps-head{margin-top:64px; text-align:center;}
+  .steps-head .kicker{color:#9dc4ef; font-weight:700; font-size:12px; letter-spacing:2.5px; text-transform:uppercase;}
+  .steps-head h2{font-size:23px; color:#fff; margin-top:8px; text-transform:uppercase; letter-spacing:.5px;}
+  .steps{counter-reset:step; display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:16px; margin-top:28px; text-align:left;}
+  .step{background:rgba(255,255,255,.05); border:1px solid var(--rule); border-radius:16px; padding:22px;}
+  .step::before{counter-increment:step; content:counter(step); display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:50%; background:#fff; color:var(--navy); font-weight:800; margin-bottom:12px;}
+  .step h3{color:#fff; font-size:15px; margin-bottom:6px;}
+  .step p{color:#bcd7f5; font-size:13.5px;}
+  .step code{background:rgba(255,255,255,.12); color:#fff; padding:2px 6px; border-radius:5px; font-size:12px;}
+
+  /* Auto-update note */
+  .autoup{margin-top:44px; background:rgba(255,255,255,.05); border:1px solid var(--rule); border-radius:18px; padding:26px; text-align:center;}
+  .autoup .big{font-size:30px;}
+  .autoup h3{color:#fff; font-size:17px; margin:8px 0 6px;}
+  .autoup p{color:#bcd7f5; font-size:14px; max-width:520px; margin:0 auto;}
+
+  footer{text-align:center; padding:30px 24px 44px; color:#7fa6cf; font-size:12.5px;}
+
+  @media (max-width:600px){ .dl-card{padding:32px 22px;} .dl-card h1{font-size:24px;} .dl-btn{font-size:16px; padding:16px 28px;} }
+  @media (prefers-reduced-motion: reduce){
+    .h-rise{animation:none; opacity:1; transform:none;}
+    .reveal{opacity:1 !important; transform:none !important; transition:none;}
+    .dl-btn .arrow{animation:none;}
+    html{scroll-behavior:auto;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="brand" href="/">
+    <img src="/logo.png" alt="" />
+    <div>
+      <div class="t1 slab">Priority</div>
+      <div class="t2">Team Connect</div>
+    </div>
+  </a>
+  <a class="back" href="/">← Back to home</a>
+</div>
+
+<div class="wrap">
+  <div class="dl-card">
+    <img class="app-icon h-rise" src="/logo.png" alt="Priority Team Connect" />
+    <h1 class="slab h-rise">Download for Windows</h1>
+    <div class="ver h-rise">Windows 10 / 11 · 64-bit</div>
+    <div>
+      <a class="dl-btn h-rise" id="dlBtn"
+         href="https://github.com/elvisbueno15/priority-property-api/releases/latest/download/PriorityTeamConnect-Setup.exe">
+        <span class="arrow">⬇</span> <span id="dlLabel">Download the installer</span>
+      </a>
+    </div>
+    <div class="dl-note h-rise">≈ 84 MB · Installs in seconds · No administrator needed</div>
+    <div class="dl-web h-rise">Prefer the browser? <a href="/app/">Open the web version →</a></div>
+
+    <div class="facts h-rise" style="animation-delay:.52s;">
+      <span class="fact">🛡️ <b>Safe</b> internal build</span>
+      <span class="fact">⚡ <b>Fast</b> one-click install</span>
+      <span class="fact">🔄 <b>Auto-updates</b> forever</span>
+    </div>
+  </div>
+
+  <div class="steps-head reveal">
+    <span class="kicker">After you download</span>
+    <h2 class="slab">Install in 3 steps</h2>
+  </div>
+  <div class="steps" data-stagger>
+    <div class="step reveal">
+      <h3>Open the file</h3>
+      <p>Double-click <code>PriorityTeamConnect-Setup.exe</code> from your downloads.</p>
+    </div>
+    <div class="step reveal">
+      <h3>Allow it once</h3>
+      <p>Windows may warn (it's unsigned): click <b>More info → Run anyway</b>. It's a one-time step.</p>
+    </div>
+    <div class="step reveal">
+      <h3>Sign in</h3>
+      <p>Create your account or sign in, and check <code>Keep me signed in</code>. Done!</p>
+    </div>
+  </div>
+
+  <div class="autoup reveal">
+    <div class="big">🔄</div>
+    <h3>Install once — update never</h3>
+    <p>After the first install you'll never download it again. New versions download quietly in the
+      background and apply the next time you close the app. You'll always be on the latest.</p>
+  </div>
+</div>
+
+<footer>
+  <span class="slab" style="color:#cfe0f5;">PRIORITY</span> PROPERTY ACQUISITION · © 2026 Priority Team Connect
+</footer>
+
+<script>
+  (function(){
+    var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!(reduce || !('IntersectionObserver' in window))) {
+      document.querySelectorAll('[data-stagger]').forEach(function(group){
+        Array.prototype.forEach.call(group.children, function(c,i){ c.style.transitionDelay = (i*70)+'ms'; });
+      });
+      var io = new IntersectionObserver(function(entries){
+        entries.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target);} });
+      }, { threshold:0.14, rootMargin:'0px 0px -6% 0px' });
+      document.querySelectorAll('.reveal').forEach(function(el){ io.observe(el); });
+    } else {
+      document.querySelectorAll('.reveal').forEach(function(el){ el.classList.add('in'); });
+    }
+    // Small feedback when the download starts.
+    var btn = document.getElementById('dlBtn'), label = document.getElementById('dlLabel');
+    if (btn) btn.addEventListener('click', function(){
+      label.textContent = 'Starting download…';
+      setTimeout(function(){ label.textContent = 'Check your downloads ✓'; }, 2600);
+    });
+  })();
+</script>
+</body>
+</html>
