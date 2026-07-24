@@ -23,3 +23,20 @@ services:
         sync: false
       - key: RESEND_FROM
         value: Priority Team Connect <noreply@priorityacq.com>
+      # --- Access control (private / future paid product) ---
+      # SIGNUP_MODE: 'open' (anyone can register — current trial behavior),
+      # 'invite' (a valid SIGNUP_INVITE_CODE is required), or 'closed' (no
+      # self-registration; owner creates accounts). Flip to lock the product
+      # down for paid use — no code change needed.
+      - key: SIGNUP_MODE
+        value: open
+      # Only used when SIGNUP_MODE=invite. Dashboard secret.
+      - key: SIGNUP_INVITE_CODE
+        sync: false
+      # Comma-separated emails that become OWNER on registration. Everyone else
+      # is EMPLOYEE (client-supplied roles are ignored). This is how the first
+      # real owner is minted now that demo accounts are no longer seeded.
+      - key: OWNER_EMAILS
+        value: elvis@priorityacq.com
+      # Never set SEED_DEMO in production — it would recreate the public
+      # owner@demo.com / admin@demo.com / employee@demo.com backdoor accounts.

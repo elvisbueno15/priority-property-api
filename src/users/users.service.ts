@@ -34,6 +34,7 @@ export class UsersService {
       this.users = JSON.parse(raw) as JsonUser[];
       // Existing store: never re-seed, so deleted demo accounts stay deleted.
       if (this.users.length === 0) await this.seedIfMissing();
+      await this.purgeDefaultDemoAccounts();
     } catch {
       this.users = [];
       await this.save();
@@ -113,7 +114,39 @@ export class UsersService {
     return this.users.map(({ id, email, name, role }) => ({ id, email, name, role }));
   }
 
+  /**
+   * Remove the built-in demo accounts IF they still carry their public,
+   * well-known demo password. This kills the owner@demo.com / admin@demo.com /
+   * employee@demo.com backdoor in any real deployment without ever touching a
+   * genuine account that merely happens to reuse one of those emails (its
+   * password would no longer match). No-op when SEED_DEMO=1 (local/dev).
+   */
+  private async purgeDefaultDemoAccounts(): Promise<void> {
+    if (process.env.SEED_DEMO === '1') return;
+    const defaults: Array<[string, string]> = [
+      ['owner@demo.com', 'owner123'],
+      ['admin@demo.com', 'admin123'],
+      ['employee@demo.com', 'employee123'],
+    ];
+    const removed: string[] = [];
+    for (const [email, pw] of defaults) {
+      const u = this.findByEmail(email);
+      if (u && (await bcrypt.compare(pw, u.passwordHash))) {
+        this.users = this.users.filter((x) => x.id !== u.id);
+        removed.push(email);
+      }
+    }
+    if (removed.length) {
+      await this.save();
+      console.warn(`[security] Removed default demo account(s) with public passwords: ${removed.join(', ')}`);
+    }
+  }
+
   async seedIfMissing(): Promise<boolean> {
+    // Demo accounts have PUBLIC, well-known passwords — a backdoor in any real
+    // deployment. Only seed them when explicitly asked (local/dev). In prod the
+    // first real owner comes from the OWNER_EMAILS allowlist on registration.
+    if (process.env.SEED_DEMO !== '1') return false;
     const demo = [
       ['owner@demo.com', 'owner123', 'Owner Demo', Role.OWNER],
       ['admin@demo.com', 'admin123', 'Admin Demo', Role.ADMIN],

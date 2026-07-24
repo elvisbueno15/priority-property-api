@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { randomInt } from 'crypto';
 import { UsersService } from '../users/users.service';
@@ -24,12 +24,54 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  async register(dto: { email: string; password: string; name: string; role?: Role }) {
-    const existing = this.usersService.findByEmail(dto.email);
+  /**
+   * Self-service account creation.
+   *
+   * SIGNUP_MODE controls who may register (default 'open' — today's behavior;
+   * flip to 'invite' or 'closed' later to lock the product down without a code
+   * change). The client-supplied `role` is IGNORED on purpose: a self-registered
+   * account is always EMPLOYEE unless its email is on the OWNER_EMAILS allowlist.
+   * Owners are otherwise minted only by an existing owner promoting someone
+   * in-app — never by anything a stranger can POST.
+   */
+  async register(dto: { email: string; password: string; name: string; invite?: string }) {
+    const email = (dto.email || '').trim();
+    const name = (dto.name || '').trim();
+    if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      throw new BadRequestException('A valid email is required.');
+    }
+    if (!name) throw new BadRequestException('Name is required.');
+    if (!dto.password || dto.password.length < 6) {
+      throw new BadRequestException('Password must be at least 6 characters.');
+    }
+
+    const mode = (process.env.SIGNUP_MODE || 'open').trim().toLowerCase();
+    if (mode === 'closed') {
+      throw new ForbiddenException('Registration is closed. Ask an administrator for an account.');
+    }
+    if (mode === 'invite') {
+      const expected = (process.env.SIGNUP_INVITE_CODE || '').trim();
+      if (!expected || (dto.invite || '').trim() !== expected) {
+        throw new UnauthorizedException('A valid invite code is required to register.');
+      }
+    }
+
+    const existing = this.usersService.findByEmail(email);
     if (existing) throw new UnauthorizedException('Email already registered');
-    const user = await this.usersService.create(dto.email, dto.password, dto.name, dto.role || Role.EMPLOYEE);
+
+    const role = this.isOwnerEmail(email) ? Role.OWNER : Role.EMPLOYEE;
+    const user = await this.usersService.create(email, dto.password, name, role);
     const accessToken = await this.jwtService.signAsync({ sub: user.id, email: user.email, role: user.role });
     return { accessToken, user: { id: user.id, email: user.email, name: user.name, role: user.role } };
+  }
+
+  /** Emails allowed to become OWNER on registration (comma-separated env). */
+  private isOwnerEmail(email: string): boolean {
+    const list = (process.env.OWNER_EMAILS || '')
+      .split(',')
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean);
+    return list.includes((email || '').trim().toLowerCase());
   }
 
   async login(dto: { email: string; password: string }) {
